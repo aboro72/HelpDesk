@@ -1,0 +1,219 @@
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         AUTO-UPDATE SYSTEM ARCHITEKTUR                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+UPDATE FLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────┐
+│  GitHub API     │
+│  (Repository)   │
+└────────┬────────┘
+         │
+         │ HTTPS Request
+         ↓
+┌──────────────────────────────────────────┐
+│    UpdateChecker (update_manager.py)     │
+│  • get_file_hash()                       │
+│  • get_github_file_hash()                │
+│  • check_for_updates()                   │
+│  • _file_needs_update()                  │
+└────────┬─────────────────────────────────┘
+         │
+         │ returns {has_updates: true, files: [...]}
+         ↓
+┌──────────────────────────────────────────┐
+│ UpdateNotification (Model)               │
+│  • id, title, version                    │
+│  • available_files, installed            │
+│  • installed_at, created_at              │
+└────────┬─────────────────────────────────┘
+         │
+         │ Benachrichtigung erstellt
+         ↓
+┌──────────────────────────────────────────┐
+│   Admin wird benachrichtigt               │
+│  • Web-Interface zeigt "Updates verfügbar"
+│  • Management Command kann installieren   │
+│  • Celery Task kann automatisch installieren
+└──────────────────────────────────────────┘
+
+
+INSTALLATION FLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+┌──────────────────┐
+│ Admin Action     │
+│ • CLI            │
+│ • Web-Interface  │
+│ • Celery Task    │
+└────────┬─────────┘
+         │
+         ↓
+┌──────────────────────────────────────────┐
+│   UpdateDownloader (update_manager.py)   │
+│  • download_file()                       │
+│  • backup_file()                         │
+│  • install_file()                        │
+│  • install_updates()                     │
+└────────┬─────────────────────────────────┘
+         │
+         ├─────────────────────┬──────────────────────┐
+         │                     │                      │
+         ↓                     ↓                      ↓
+    [Backup]            [Download]          [Install]
+    .update_backups/    GitHub API          Local Files
+    • file_backup_1     (HTTPS)             
+    • file_backup_2                        
+    • ...                                  
+
+
+KOMPONENTEN
+═══════════════════════════════════════════════════════════════════════════════
+
+1. UPDATE MANAGER (update_manager.py)
+   ├── UpdateChecker
+   │   ├── get_file_hash(file_path)
+   │   ├── get_github_file_hash(file_path)
+   │   ├── check_for_updates(force=False)
+   │   └── _file_needs_update(local_path, file_path)
+   │
+   ├── UpdateDownloader
+   │   ├── download_file(file_path)
+   │   ├── backup_file(file_path)
+   │   ├── install_file(file_path, content)
+   │   └── install_updates(file_list)
+   │
+   ├── UpdateNotification (Model)
+   │   ├── title, description, version
+   │   ├── available_files, installed
+   │   └── created_from_check()
+   │
+   └── Tasks
+       ├── check_and_notify_updates()
+       └── install_updates_task(notification_id)
+
+
+2. MANAGEMENT COMMAND (management/commands/check_updates.py)
+   ├── check_updates(force=False, list_files=False)
+   ├── check_and_install_updates()
+   └── install_specific_update(notification_id)
+
+
+3. VIEWS (update_views.py)
+   ├── check_updates_view()
+   ├── install_updates_view()
+   ├── update_history_view()
+   ├── force_check_updates()
+   ├── UpdateNotificationListView
+   └── UpdateNotificationDetailView
+
+
+4. CELERY TASKS (update_tasks.py)
+   ├── check_for_updates_task()
+   │   └── Runs every 6 hours (configurable)
+   │
+   ├── install_pending_updates_task()
+   │   └── Installs specific notification
+   │
+   └── auto_install_updates()
+       └── If AUTO_UPDATE=True
+
+
+CONFIGURATION
+═══════════════════════════════════════════════════════════════════════════════
+
+Environment Variables (.env):
+  GITHUB_REPO = aborowczak/HelpDesk
+  GITHUB_BRANCH = main
+  AUTO_UPDATE = False
+  AUTO_UPDATE_HOUR = 2
+
+Django Settings (settings.py):
+  AUTO_UPDATE (bool)
+  AUTO_UPDATE_HOUR (int)
+  CELERY_BEAT_SCHEDULE with check-for-updates task
+
+
+USAGE PATHS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. CLI (Command Line)
+   python manage.py check_updates
+   python manage.py check_updates --install
+   python manage.py check_updates --list-files
+   python manage.py check_updates --force
+
+2. CRON JOB (Linux/Mac)
+   0 2 * * * cd /path && python manage.py check_updates
+   0 3 * * * cd /path && python manage.py check_updates --install
+
+3. CELERY BEAT (Automatic every 6 hours)
+   celery -A helpdesk worker -l info
+   celery -A helpdesk beat -l info
+
+4. WINDOWS TASK SCHEDULER
+   Program: pythonw.exe manage.py check_updates
+   Trigger: Daily at 2:00 AM
+
+5. WEB INTERFACE (Admin Panel)
+   Admin → Settings → Updates → Install
+
+
+DATA FLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+Check Phase:
+  GitHub → UpdateChecker → Hash Comparison → UpdateNotification created
+
+Install Phase:
+  UpdateNotification → UpdateDownloader → Backup → Download → Install
+
+Monitor Phase:
+  UpdateNotification → Web UI / Logs / Admin Panel
+
+
+SECURITY
+═══════════════════════════════════════════════════════════════════════════════
+
+Protected Files (NEVER updated):
+  • .env
+  • helpdesk/settings.py
+  • db.sqlite3
+  • manage.py
+
+Backup Strategy:
+  • All original files backed up to .update_backups/
+  • Timestamped backup files for easy rollback
+  • Original file contents always preserved
+
+Verification:
+  • SHA256 hashing for file comparison
+  • HTTPS only for GitHub API
+  • Error logging and handling
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+INTEGRATION POINTS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Admin Panel
+   • check_updates_view displays current status
+   • install_updates_view handles installation
+   • update_history_view shows past updates
+
+2. Celery Beat
+   • check_for_updates_task runs every 6 hours
+   • auto_install_updates runs at scheduled time
+
+3. Django Cache
+   • Results cached for 1 hour (configurable)
+   • Force check bypasses cache
+
+4. Notifications
+   • UpdateNotification model stores update info
+   • Admin gets visual feedback in panel
+
