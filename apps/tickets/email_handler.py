@@ -18,11 +18,25 @@ class EmailToTicketHandler:
     """Handle conversion of emails to tickets"""
 
     def __init__(self, verbose=False, limit=None, folder=None, dry_run=False, stdout=None):
-        self.imap_host = settings.IMAP_HOST
-        self.imap_port = settings.IMAP_PORT
-        self.imap_username = settings.IMAP_USERNAME
-        self.imap_password = settings.IMAP_PASSWORD
-        self.imap_folder = folder or getattr(settings, 'IMAP_FOLDER', 'INBOX')
+        # Get IMAP settings from database or environment
+        try:
+            from apps.admin_panel.settings_helper import get_imap_settings
+            imap_config = get_imap_settings()
+            self.imap_host = imap_config['host']
+            self.imap_port = imap_config['port']
+            self.imap_username = imap_config['username']
+            self.imap_password = imap_config['password']
+            self.imap_folder = folder or imap_config['folder']
+            self.imap_use_ssl = imap_config['use_ssl']
+        except Exception:
+            # Fallback to settings
+            self.imap_host = settings.IMAP_HOST
+            self.imap_port = settings.IMAP_PORT
+            self.imap_username = settings.IMAP_USERNAME
+            self.imap_password = settings.IMAP_PASSWORD
+            self.imap_folder = folder or getattr(settings, 'IMAP_FOLDER', 'INBOX')
+            self.imap_use_ssl = True
+
         self.verbose = verbose
         self.limit = limit
         self.dry_run = dry_run
@@ -51,7 +65,7 @@ class EmailToTicketHandler:
     def connect(self):
         """Connect to IMAP server"""
         try:
-            if self.imap_port == 993:
+            if self.imap_use_ssl or self.imap_port == 993:
                 # SSL connection
                 self.server = imaplib.IMAP4_SSL(self.imap_host, self.imap_port)
             else:

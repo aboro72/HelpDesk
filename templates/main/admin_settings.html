@@ -61,51 +61,124 @@
         <h2 style="font-size: 20px; font-weight: 600; margin: 0 0 25px 0; color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 15px;">
             📧 E-Mail Konfiguration
         </h2>
-        
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-            <div class="form-group">
-                <label for="{{ form.smtp_host.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
-                    {{ form.smtp_host.label }}
-                </label>
-                {{ form.smtp_host }}
+
+        <!-- SMTP Section (Outgoing) -->
+        <div style="margin-bottom: 30px;">
+            <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 15px 0; color: #495057; padding-bottom: 10px; border-bottom: 1px solid #dee2e6;">
+                📤 SMTP (Ausgehende E-Mails)
+            </h3>
+
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                <div class="form-group">
+                    <label for="{{ form.smtp_host.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
+                        {{ form.smtp_host.label }}
+                    </label>
+                    {{ form.smtp_host }}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.smtp_port.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
+                        {{ form.smtp_port.label }}
+                    </label>
+                    {{ form.smtp_port }}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.smtp_username.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
+                        {{ form.smtp_username.label }}
+                    </label>
+                    {{ form.smtp_username }}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.smtp_password.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
+                        {{ form.smtp_password.label }}
+                    </label>
+                    {{ form.smtp_password }}
+                    <small style="color: #868e96; font-size: 12px;">Leer lassen um aktuelles Passwort zu behalten</small>
+                </div>
             </div>
-            
-            <div class="form-group">
-                <label for="{{ form.smtp_port.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
-                    {{ form.smtp_port.label }}
-                </label>
-                {{ form.smtp_port }}
-            </div>
-            
-            <div class="form-group">
-                <label for="{{ form.smtp_username.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
-                    {{ form.smtp_username.label }}
-                </label>
-                {{ form.smtp_username }}
-            </div>
-            
-            <div class="form-group">
-                <label for="{{ form.smtp_password.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
-                    {{ form.smtp_password.label }}
-                </label>
-                {{ form.smtp_password }}
-                <small style="color: #868e96; font-size: 12px;">Leer lassen um aktuelles Passwort zu behalten</small>
+
+            <div style="margin-top: 15px;">
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                    {{ form.smtp_use_tls }}
+                    <label for="{{ form.smtp_use_tls.id_for_label }}" style="margin: 0; cursor: pointer; font-weight: 600; color: #495057;">
+                        {{ form.smtp_use_tls.label }}
+                    </label>
+                </div>
+
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                    {{ form.send_email_notifications }}
+                    <label for="{{ form.send_email_notifications.id_for_label }}" style="margin: 0; cursor: pointer; font-weight: 600; color: #495057;">
+                        {{ form.send_email_notifications.label }}
+                    </label>
+                </div>
             </div>
         </div>
-        
-        <div style="margin-top: 20px;">
-            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
-                {{ form.smtp_use_tls }}
-                <label for="{{ form.smtp_use_tls.id_for_label }}" style="margin: 0; cursor: pointer; font-weight: 600; color: #495057;">
-                    {{ form.smtp_use_tls.label }}
+
+        <!-- IMAP Section (Incoming) -->
+        <div style="padding-top: 20px; border-top: 2px solid #dee2e6;">
+            <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 15px 0; color: #495057; padding-bottom: 10px;">
+                📥 IMAP (Eingehende E-Mails zu Tickets)
+            </h3>
+
+            <div class="alert alert-info" style="margin-bottom: 20px;">
+                <strong>Info:</strong> Aktivieren Sie IMAP, um E-Mails automatisch zu Tickets zu konvertieren.
+                Neue E-Mails werden zu neuen Tickets, E-Mail-Antworten mit Ticket-Nummer werden als Kommentare hinzugefügt.
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+                {{ form.imap_enabled }}
+                <label for="{{ form.imap_enabled.id_for_label }}" style="margin: 0; cursor: pointer; font-weight: 600; color: #495057;">
+                    {{ form.imap_enabled.label }}
                 </label>
             </div>
-            
-            <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 15px;">
-                {{ form.send_email_notifications }}
-                <label for="{{ form.send_email_notifications.id_for_label }}" style="margin: 0; cursor: pointer; font-weight: 600; color: #495057;">
-                    {{ form.send_email_notifications.label }}
-                </label>
+
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                <div class="form-group">
+                    <label for="{{ form.imap_host.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
+                        {{ form.imap_host.label }}
+                    </label>
+                    {{ form.imap_host }}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.imap_port.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
+                        {{ form.imap_port.label }}
+                    </label>
+                    {{ form.imap_port }}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.imap_username.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
+                        {{ form.imap_username.label }}
+                    </label>
+                    {{ form.imap_username }}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.imap_password.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
+                        {{ form.imap_password.label }}
+                    </label>
+                    {{ form.imap_password }}
+                    <small style="color: #868e96; font-size: 12px;">Leer lassen um aktuelles Passwort zu behalten</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.imap_folder.id_for_label }}" style="font-weight: 600; color: #495057; margin-bottom: 8px; display: block;">
+                        {{ form.imap_folder.label }}
+                    </label>
+                    {{ form.imap_folder }}
+                </div>
+
+                <div class="form-group">
+                    <div style="display: flex; align-items: center; gap: 10px; height: 100%; margin-top: 30px;">
+                        {{ form.imap_use_ssl }}
+                        <label for="{{ form.imap_use_ssl.id_for_label }}" style="margin: 0; cursor: pointer; font-weight: 600; color: #495057;">
+                            {{ form.imap_use_ssl.label }}
+                        </label>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

@@ -28,7 +28,7 @@ class AdminSettingsForm(forms.Form):
         widget=forms.URLInput(attrs={'class': 'form-control'})
     )
     
-    # System Settings - Email
+    # System Settings - SMTP (Outgoing)
     smtp_host = forms.CharField(
         label='SMTP Server',
         max_length=255,
@@ -47,12 +47,52 @@ class AdminSettingsForm(forms.Form):
     smtp_password = forms.CharField(
         label='SMTP Passwort',
         required=False,
-        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Leer lassen, um beizubehalten'})
     )
     smtp_use_tls = forms.BooleanField(
         label='TLS verwenden',
         required=False,
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+
+    # System Settings - IMAP (Incoming)
+    imap_enabled = forms.BooleanField(
+        label='IMAP aktivieren (E-Mails automatisch zu Tickets)',
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+    imap_host = forms.CharField(
+        label='IMAP Server',
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'z.B. mail.aboro-it.net'})
+    )
+    imap_port = forms.IntegerField(
+        label='IMAP Port',
+        required=False,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '993'})
+    )
+    imap_username = forms.CharField(
+        label='IMAP Benutzername',
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    imap_password = forms.CharField(
+        label='IMAP Passwort',
+        required=False,
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Leer lassen, um beizubehalten'})
+    )
+    imap_use_ssl = forms.BooleanField(
+        label='SSL verwenden',
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+    imap_folder = forms.CharField(
+        label='IMAP Ordner',
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'z.B. INBOX'})
     )
     
     # System Settings - Features
@@ -190,11 +230,21 @@ class AdminSettingsForm(forms.Form):
             self.fields['app_name'].initial = self.system_settings.app_name
             self.fields['company_name'].initial = self.system_settings.company_name
             self.fields['site_url'].initial = self.system_settings.site_url
+            # SMTP
             self.fields['smtp_host'].initial = self.system_settings.smtp_host
             self.fields['smtp_port'].initial = self.system_settings.smtp_port
             self.fields['smtp_username'].initial = self.system_settings.smtp_username
             self.fields['smtp_password'].initial = self.system_settings.smtp_password
             self.fields['smtp_use_tls'].initial = self.system_settings.smtp_use_tls
+            # IMAP
+            self.fields['imap_enabled'].initial = self.system_settings.imap_enabled
+            self.fields['imap_host'].initial = self.system_settings.imap_host
+            self.fields['imap_port'].initial = self.system_settings.imap_port
+            self.fields['imap_username'].initial = self.system_settings.imap_username
+            self.fields['imap_password'].initial = self.system_settings.imap_password
+            self.fields['imap_use_ssl'].initial = self.system_settings.imap_use_ssl
+            self.fields['imap_folder'].initial = self.system_settings.imap_folder
+            # Features
             self.fields['send_email_notifications'].initial = self.system_settings.send_email_notifications
             self.fields['max_upload_size_mb'].initial = self.system_settings.max_upload_size_mb
             # AI Settings
@@ -229,12 +279,30 @@ class AdminSettingsForm(forms.Form):
             self.system_settings.app_name = self.cleaned_data['app_name']
             self.system_settings.company_name = self.cleaned_data['company_name']
             self.system_settings.site_url = self.cleaned_data['site_url']
+
+            # SMTP settings
             self.system_settings.smtp_host = self.cleaned_data['smtp_host']
             self.system_settings.smtp_port = self.cleaned_data['smtp_port']
             self.system_settings.smtp_username = self.cleaned_data['smtp_username']
             if self.cleaned_data['smtp_password']:  # Only update password if provided
                 self.system_settings.smtp_password = self.cleaned_data['smtp_password']
             self.system_settings.smtp_use_tls = self.cleaned_data['smtp_use_tls']
+
+            # IMAP settings
+            self.system_settings.imap_enabled = self.cleaned_data['imap_enabled']
+            if self.cleaned_data['imap_host']:
+                self.system_settings.imap_host = self.cleaned_data['imap_host']
+            if self.cleaned_data['imap_port']:
+                self.system_settings.imap_port = self.cleaned_data['imap_port']
+            if self.cleaned_data['imap_username']:
+                self.system_settings.imap_username = self.cleaned_data['imap_username']
+            if self.cleaned_data['imap_password']:  # Only update password if provided
+                self.system_settings.imap_password = self.cleaned_data['imap_password']
+            self.system_settings.imap_use_ssl = self.cleaned_data['imap_use_ssl']
+            if self.cleaned_data['imap_folder']:
+                self.system_settings.imap_folder = self.cleaned_data['imap_folder']
+
+            # Other settings
             self.system_settings.send_email_notifications = self.cleaned_data['send_email_notifications']
             self.system_settings.max_upload_size_mb = self.cleaned_data['max_upload_size_mb']
 
