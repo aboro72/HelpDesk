@@ -81,6 +81,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'apps.main.context_processors.branding_context',  # Custom branding settings
+                'apps.admin_panel.context_processors.admin_settings_context',  # Admin settings from database
             ],
         },
     },
@@ -191,6 +192,12 @@ MEDIA_ROOT = BASE_DIR / 'media'
 MAX_UPLOAD_SIZE = 16 * 1024 * 1024  # 16MB
 ALLOWED_EXTENSIONS = ['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'zip']
 
+# Django file upload settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 16 * 1024 * 1024  # 16MB - max file size in memory
+DATA_UPLOAD_MAX_MEMORY_SIZE = 16 * 1024 * 1024  # 16MB - max post data size
+FILE_UPLOAD_PERMISSIONS = 0o644  # file permissions for uploaded files
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755  # directory permissions
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
@@ -230,9 +237,43 @@ CLAUDE_API_KEY = os.environ.get('CLAUDE_API_KEY')
 TEAMS_WEBHOOK_URL = os.environ.get('TEAMS_WEBHOOK_URL')
 
 
+# Cache Configuration
+# Uses Redis if available, otherwise falls back to local memory cache
+REDIS_URL = os.environ.get('REDIS_URL', None)
+
+# Try to use Redis if configured and available
+try:
+    if REDIS_URL and 'redis' in REDIS_URL:
+        # Test if django_redis is installed
+        import django_redis
+        CACHES = {
+            'default': {
+                'BACKEND': 'django_redis.cache.RedisCache',
+                'LOCATION': REDIS_URL,
+                'OPTIONS': {
+                    'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                    'CONNECTION_POOL_KWARGS': {'max_connections': 50},
+                }
+            }
+        }
+    else:
+        raise ImportError("Redis not configured")
+except (ImportError, ModuleNotFoundError):
+    # Fallback to local memory cache (default, no installation required)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'helpdesk-cache',
+        }
+    }
+
+# Cache timeout settings (in seconds)
+CACHE_TIMEOUT = 300  # 5 minutes
+
+
 # Celery Configuration
-CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'

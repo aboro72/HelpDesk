@@ -162,6 +162,69 @@ class SystemSettings(models.Model):
         help_text='Maximale Länge der KI-Antworten'
     )
 
+    # Theme Settings
+    theme_variant = models.CharField(
+        _('Theme Variant'),
+        max_length=50,
+        choices=[
+            ('default', 'Default (Modern Blue)'),
+            ('professional', 'Professional (Dark Blue)'),
+            ('bright', 'Bright (Orange)'),
+            ('modern', 'Modern (Indigo & Teal)'),
+            ('corporate', 'Corporate (Navy Blue)'),
+            ('dark', 'Dark Mode (Dark Gray & Blue)'),
+            ('custom', 'Custom'),
+        ],
+        default='default',
+        help_text='Vordefiniertes Theme oder Custom für Admin-Konfiguration'
+    )
+    primary_color = models.CharField(
+        _('Primary Color'),
+        max_length=7,
+        default='#0066CC',
+        help_text='Primärfarbe für Hauptelemente'
+    )
+    secondary_color = models.CharField(
+        _('Secondary Color'),
+        max_length=7,
+        default='#00B366',
+        help_text='Sekundärfarbe für Nebenelemente'
+    )
+    accent_color = models.CharField(
+        _('Accent Color'),
+        max_length=7,
+        default='#FF6600',
+        help_text='Akzentfarbe für wichtige CTAs'
+    )
+    danger_color = models.CharField(
+        _('Danger Color'),
+        max_length=7,
+        default='#CC0000',
+        help_text='Farbe für Warnungen und Fehler'
+    )
+    font_family = models.CharField(
+        _('Font Family'),
+        max_length=100,
+        choices=[
+            ('inter', 'Inter (Modern)'),
+            ('roboto', 'Roboto (Standard)'),
+            ('playfair', 'Playfair (Elegant)'),
+            ('poppins', 'Poppins (Casual)'),
+        ],
+        default='inter',
+        help_text='Schriftart für die Anwendung'
+    )
+    border_radius = models.IntegerField(
+        _('Border Radius (px)'),
+        default=8,
+        help_text='Eckenradius für Cards und Buttons'
+    )
+    enable_dark_mode = models.BooleanField(
+        _('Enable Dark Mode'),
+        default=False,
+        help_text='Dark Mode Umschalter aktivieren'
+    )
+
     # System Settings
     timezone = models.CharField(_('Timezone'), max_length=100, default='Europe/Berlin')
     language = models.CharField(

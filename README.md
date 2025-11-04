@@ -517,6 +517,60 @@ python manage.py shell
 
 ---
 
+## ⚙️ Upload-Limits Konfiguration
+
+**WICHTIG**: Wenn Sie einen 413 Request Entity Too Large Fehler beim Hochladen von Dateien (z.B. Logo, Anhänge) erhalten, müssen Sie folgende Stellen überprüfen und anpassen:
+
+### 1. Django Settings (`helpdesk/settings.py`)
+
+Diese Werte wurden bereits auf 16MB gesetzt:
+```python
+FILE_UPLOAD_MAX_MEMORY_SIZE = 16 * 1024 * 1024  # 16MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 16 * 1024 * 1024  # 16MB
+MAX_UPLOAD_SIZE = 16 * 1024 * 1024  # 16MB
+```
+
+### 2. Nginx Konfiguration (KRITISCH!)
+
+Sie müssen in Ihrer Nginx-Konfiguration (`/etc/nginx/sites-available/helpdesk`) folgende Zeile hinzufügen oder anpassen:
+
+```nginx
+server {
+    listen 80;
+    server_name ihre-domain.de;
+
+    # WICHTIG: Das muss mindestens so groß sein wie FILE_UPLOAD_MAX_MEMORY_SIZE in Django
+    client_max_body_size 16M;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+**Dann Nginx neustarten:**
+```bash
+sudo systemctl reload nginx
+```
+
+### 3. Optional: Gunicorn/uWSGI Worker-Timeout anpassen
+
+Falls Sie Gunicorn verwenden (falls größere Uploads hängen bleiben), erhöhen Sie den Timeout:
+
+```bash
+gunicorn --timeout 120 helpdesk.wsgi:application
+```
+
+### 4. SystemSettings im Admin-Panel
+
+Im Admin-Panel können Sie auch die maximale Upload-Größe pro Dateitype einstellen:
+- Settings → System Einstellungen → "Maximale Upload-Größe (MB)"
+
+---
+
 ## 📝 Konfiguration
 
 ### Wichtige Einstellungen in `.env`

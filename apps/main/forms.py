@@ -21,7 +21,7 @@ class AdminSettingsForm(forms.Form):
     logo = forms.ImageField(
         label='Logo',
         required=False,
-        widget=forms.FileInput(attrs={'class': 'form-control'})
+        widget=forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'})
     )
     site_url = forms.URLField(
         label='Website URL',
@@ -125,7 +125,61 @@ class AdminSettingsForm(forms.Form):
         label='KI Max Tokens',
         widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '100', 'max': '2000'})
     )
-    
+
+    # Theme Settings
+    theme_variant = forms.ChoiceField(
+        label='Design Theme',
+        choices=[
+            ('default', 'Default (Modern Blue)'),
+            ('professional', 'Professional (Dark Blue)'),
+            ('bright', 'Bright (Orange)'),
+            ('modern', 'Modern (Indigo & Teal)'),
+            ('corporate', 'Corporate (Navy Blue)'),
+            ('dark', 'Dark Mode (Dark Gray & Blue)'),
+            ('custom', 'Custom (Eigenes Design)'),
+        ],
+        widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_theme_variant'})
+    )
+    primary_color = forms.CharField(
+        label='Primärfarbe',
+        max_length=7,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'type': 'color'})
+    )
+    secondary_color = forms.CharField(
+        label='Sekundärfarbe',
+        max_length=7,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'type': 'color'})
+    )
+    accent_color = forms.CharField(
+        label='Akzentfarbe',
+        max_length=7,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'type': 'color'})
+    )
+    danger_color = forms.CharField(
+        label='Warnfarbe',
+        max_length=7,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'type': 'color'})
+    )
+    font_family = forms.ChoiceField(
+        label='Schriftart',
+        choices=[
+            ('inter', 'Inter (Modern)'),
+            ('roboto', 'Roboto (Standard)'),
+            ('playfair', 'Playfair (Elegant)'),
+            ('poppins', 'Poppins (Casual)'),
+        ],
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    border_radius = forms.IntegerField(
+        label='Eckenradius (px)',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'max': '20'})
+    )
+    enable_dark_mode = forms.BooleanField(
+        label='Dark Mode Umschalter aktivieren',
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+
     def __init__(self, *args, **kwargs):
         self.system_settings = kwargs.pop('system_settings', None)
         self.chat_settings = kwargs.pop('chat_settings', None)
@@ -150,6 +204,15 @@ class AdminSettingsForm(forms.Form):
             self.fields['anthropic_api_key'].initial = self.system_settings.anthropic_api_key
             self.fields['ai_response_delay'].initial = self.system_settings.ai_response_delay
             self.fields['ai_max_tokens'].initial = self.system_settings.ai_max_tokens
+            # Theme Settings
+            self.fields['theme_variant'].initial = self.system_settings.theme_variant
+            self.fields['primary_color'].initial = self.system_settings.primary_color
+            self.fields['secondary_color'].initial = self.system_settings.secondary_color
+            self.fields['accent_color'].initial = self.system_settings.accent_color
+            self.fields['danger_color'].initial = self.system_settings.danger_color
+            self.fields['font_family'].initial = self.system_settings.font_family
+            self.fields['border_radius'].initial = self.system_settings.border_radius
+            self.fields['enable_dark_mode'].initial = self.system_settings.enable_dark_mode
         
         if self.chat_settings:
             self.fields['chat_enabled'].initial = self.chat_settings.is_enabled
@@ -174,7 +237,7 @@ class AdminSettingsForm(forms.Form):
             self.system_settings.smtp_use_tls = self.cleaned_data['smtp_use_tls']
             self.system_settings.send_email_notifications = self.cleaned_data['send_email_notifications']
             self.system_settings.max_upload_size_mb = self.cleaned_data['max_upload_size_mb']
-            
+
             # AI Settings
             self.system_settings.ai_enabled = self.cleaned_data['ai_enabled']
             self.system_settings.ai_provider = self.cleaned_data['ai_provider']
@@ -184,13 +247,23 @@ class AdminSettingsForm(forms.Form):
                 self.system_settings.anthropic_api_key = self.cleaned_data['anthropic_api_key']
             self.system_settings.ai_response_delay = self.cleaned_data['ai_response_delay']
             self.system_settings.ai_max_tokens = self.cleaned_data['ai_max_tokens']
-            
+
+            # Theme Settings
+            self.system_settings.theme_variant = self.cleaned_data['theme_variant']
+            self.system_settings.primary_color = self.cleaned_data['primary_color']
+            self.system_settings.secondary_color = self.cleaned_data['secondary_color']
+            self.system_settings.accent_color = self.cleaned_data['accent_color']
+            self.system_settings.danger_color = self.cleaned_data['danger_color']
+            self.system_settings.font_family = self.cleaned_data['font_family']
+            self.system_settings.border_radius = self.cleaned_data['border_radius']
+            self.system_settings.enable_dark_mode = self.cleaned_data['enable_dark_mode']
+
             # Handle logo upload
             if 'logo' in self.files:
                 self.system_settings.logo = self.files['logo']
-            
+
             self.system_settings.save()
-        
+
         if self.chat_settings:
             # Update chat settings
             self.chat_settings.is_enabled = self.cleaned_data['chat_enabled']

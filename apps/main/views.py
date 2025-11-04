@@ -54,7 +54,8 @@ def admin_settings(request):
         form = AdminSettingsForm(system_settings=system_settings, chat_settings=chat_settings)
     
     # Generate chat widget embed code
-    site_url = getattr(settings, 'SITE_URL', 'http://localhost:8000')
+    # Use site_url from database if available, otherwise use Django settings
+    site_url = system_settings.site_url if system_settings.site_url else getattr(settings, 'SITE_URL', 'http://localhost:8000')
     widget_url = f"{site_url}/chat/widget/"
     
     embed_code = f'''<!-- Aboro-IT Helpdesk Live Chat Widget -->
@@ -112,7 +113,8 @@ def debug_widget_codes(request):
     chat_settings = ChatSettings.get_settings()
     
     # Generate widget codes
-    site_url = getattr(settings, 'SITE_URL', 'http://localhost:8000')
+    # Use site_url from database if available, otherwise use Django settings
+    site_url = system_settings.site_url if system_settings.site_url else getattr(settings, 'SITE_URL', 'http://localhost:8000')
     widget_url = f"{site_url}/chat/widget/"
     
     embed_code = f'''<!-- Aboro-IT Helpdesk Live Chat Widget -->

@@ -99,7 +99,7 @@ class FileUploadHandler:
 class LogoUploadHandler:
     """Specialized handler for logo uploads"""
 
-    MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2MB
+    MAX_LOGO_SIZE = 16 * 1024 * 1024  # 16MB - matching system MAX_UPLOAD_SIZE
     ALLOWED_FORMATS = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
 
     @classmethod
@@ -110,7 +110,7 @@ class LogoUploadHandler:
 
         # Check file size
         if file_obj.size > cls.MAX_LOGO_SIZE:
-            return False, f"Logo file too large. Maximum size: 2MB"
+            return False, f"Logo file too large. Maximum size: 16MB"
 
         # Check MIME type
         if file_obj.content_type not in cls.ALLOWED_FORMATS:

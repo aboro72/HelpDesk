@@ -5,3 +5,7 @@ class AdminPanelConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'apps.admin_panel'
     verbose_name = 'Administration Panel'
+
+    def ready(self):
+        """Register signal handlers when app is ready"""
+        import apps.admin_panel.signals  # noqa
