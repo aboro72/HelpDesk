@@ -120,6 +120,10 @@ class Ticket(models.Model):
     # Email integration
     email_thread_id = models.CharField(_('email thread ID'), max_length=255,
                                       null=True, blank=True)
+    created_from_email = models.BooleanField(_('created from email'), default=False,
+                                             help_text='Ticket was created from incoming email')
+    email_from = models.EmailField(_('email from'), null=True, blank=True,
+                                  help_text='Original email sender address')
 
     # Customer satisfaction
     rating = models.IntegerField(_('rating'), null=True, blank=True,
@@ -304,12 +308,21 @@ class TicketComment(models.Model):
                               on_delete=models.PROTECT,
                               related_name='ticket_comments',
                               verbose_name=_('author'),
-                              db_index=True)
+                              db_index=True,
+                              null=True, blank=True)
+    # For email comments (when author is not a registered user)
+    author_name = models.CharField(_('author name'), max_length=255, null=True, blank=True,
+                                  help_text='Name for email-based comments')
+    author_email = models.EmailField(_('author email'), null=True, blank=True,
+                                    help_text='Email for email-based comments')
+    message = models.TextField(_('message'), null=True, blank=True)  # Alias for content
     content = models.TextField(_('content'))
     is_internal = models.BooleanField(_('internal note'), default=False,
                                      help_text='Internal notes are not visible to customers')
     email_message_id = models.CharField(_('email message ID'), max_length=255,
                                        null=True, blank=True)
+    is_from_email = models.BooleanField(_('from email'), default=False,
+                                       help_text='Comment was created from incoming email')
     created_at = models.DateTimeField(_('created at'), default=timezone.now, db_index=True)
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
 

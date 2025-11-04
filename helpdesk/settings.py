@@ -214,10 +214,12 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASSWORD')
 DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_USERNAME')
 
 # IMAP Configuration for reading emails
-IMAP_HOST = os.environ.get('EMAIL_HOST', 'outlook.office365.com')
-IMAP_PORT = int(os.environ.get('EMAIL_PORT', 993))
-IMAP_USERNAME = os.environ.get('EMAIL_USERNAME')
-IMAP_PASSWORD = os.environ.get('EMAIL_PASSWORD')
+IMAP_HOST = os.environ.get('IMAP_HOST', os.environ.get('EMAIL_HOST', 'mail.aboro-it.net'))
+IMAP_PORT = int(os.environ.get('IMAP_PORT', os.environ.get('EMAIL_PORT', 993)))
+IMAP_USERNAME = os.environ.get('IMAP_USERNAME', os.environ.get('EMAIL_USERNAME'))
+IMAP_PASSWORD = os.environ.get('IMAP_PASSWORD', os.environ.get('EMAIL_PASSWORD'))
+IMAP_FOLDER = os.environ.get('IMAP_FOLDER', 'INBOX')
+IMAP_ENABLED = os.environ.get('IMAP_ENABLED', 'False') == 'True'
 
 
 # Microsoft OAuth2 Configuration
@@ -279,6 +281,16 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+# Celery Beat Schedule - Automated Tasks
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    'process-email-to-tickets': {
+        'task': 'apps.tickets.tasks.process_email_to_tickets',
+        'schedule': crontab(minute='*/5'),  # Run every 5 minutes
+        'options': {'queue': 'default'}
+    },
+}
 
 
 # Django REST Framework
