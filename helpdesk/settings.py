@@ -290,7 +290,16 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute='*/5'),  # Run every 5 minutes
         'options': {'queue': 'default'}
     },
+    'check-for-updates': {
+        'task': 'apps.admin_panel.update_tasks.check_for_updates_task',
+        'schedule': crontab(hour='*/6'),  # Run every 6 hours
+        'options': {'queue': 'default'}
+    },
 }
+
+# Auto-update settings
+AUTO_UPDATE = os.environ.get('AUTO_UPDATE', 'False') == 'True'
+AUTO_UPDATE_HOUR = int(os.environ.get('AUTO_UPDATE_HOUR', '2'))  # Update at 2 AM
 
 
 # Django REST Framework
