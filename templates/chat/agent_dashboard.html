@@ -3,17 +3,41 @@
 {% block title %}Live Chat Dashboard - {{ app_title }}{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <h1 style="font-size: 28px; font-weight: 600; margin: 0;">Live Chat Dashboard</h1>
     <div style="display: flex; gap: 10px; align-items: center;">
         <span id="status-indicator" style="display: inline-block; width: 10px; height: 10px; background: #51cf66; border-radius: 50%; margin-right: 5px;"></span>
         <span style="font-size: 14px; color: #495057;">Online</span>
-        <button onclick="refreshDashboard()" class="btn btn-secondary btn-sm" style="margin-left: 15px;">
+        
+        <!-- Notification Controls -->
+        <button id="notification-btn" onclick="toggleNotifications()" class="btn btn-info btn-sm" style="margin-left: 15px;">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 5px;">
+                <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+            </svg>
+            Benachrichtigungen
+        </button>
+        
+        <button onclick="refreshDashboard()" class="btn btn-secondary btn-sm">
             <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="margin-right: 5px;">
                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 8 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
             </svg>
             Aktualisieren
         </button>
+    </div>
+</div>
+
+<!-- Chat Tabs Container -->
+<div id="chat-tabs-container" style="margin-bottom: 20px;">
+    <div id="chat-tabs" class="card" style="display: none; margin-bottom: 20px; padding: 0; overflow: hidden;">
+        <div style="background: #f8f9fa; border-bottom: 1px solid #dee2e6; padding: 10px 20px;">
+            <h4 style="margin: 0; font-size: 16px; font-weight: 600;">Aktive Chat-Tabs</h4>
+        </div>
+        <div id="chat-tabs-nav" style="display: flex; border-bottom: 1px solid #dee2e6; background: #fff; overflow-x: auto;">
+            <!-- Tabs werden hier dynamisch hinzugefügt -->
+        </div>
+        <div id="chat-tabs-content" style="height: 500px; overflow: hidden;">
+            <!-- Chat-Inhalte werden hier angezeigt -->
+        </div>
     </div>
 </div>
 
@@ -75,9 +99,14 @@
                         </span>
                     </td>
                     <td style="padding: 15px;">
-                        <button onclick="takeChat('{{ chat.session_id }}')" class="btn btn-success btn-sm">
-                            Chat übernehmen
-                        </button>
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="takeChat('{{ chat.session_id }}')" class="btn btn-success btn-sm">
+                                Chat übernehmen
+                            </button>
+                            <button onclick="openChatTab('{{ chat.session_id }}', '{{ chat.visitor_name }}')" class="btn btn-primary btn-sm">
+                                In Tab öffnen
+                            </button>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
@@ -142,8 +171,11 @@
                     </td>
                     <td style="padding: 15px;">
                         <div style="display: flex; gap: 8px;">
-                            <a href="{% url 'chat:chat_detail' chat.session_id %}" class="btn btn-primary btn-sm">
-                                Chat öffnen
+                            <button onclick="openChatTab('{{ chat.session_id }}', '{{ chat.visitor_name }}')" class="btn btn-primary btn-sm">
+                                In Tab öffnen
+                            </button>
+                            <a href="{% url 'chat:chat_detail' chat.session_id %}" class="btn btn-secondary btn-sm">
+                                Vollansicht
                             </a>
                             <button onclick="endChat('{{ chat.session_id }}')" class="btn btn-danger btn-sm">
                                 Beenden
@@ -167,6 +199,23 @@
 {% endif %}
 
 <script>
+// Global variables for chat management
+let openChatTabs = new Map(); // sessionId -> chat data
+let activeTabId = null;
+let notificationsEnabled = false;
+let unreadMessages = new Map(); // sessionId -> count
+let pollInterval;
+
+// Audio notification
+const notificationSound = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgdBjiS3+/NeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgdBjiS3+/NeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgdBjiS3+/NeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgdBjiS3+/NeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgdBg==');
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    setupNotificationPermissions();
+    startPolling();
+    loadSavedTabs();
+});
+
 function takeChat(sessionId) {
     if (confirm('Möchten Sie diesen Chat übernehmen?')) {
         fetch(`/chat/api/take/${sessionId}/`, {
@@ -178,8 +227,9 @@ function takeChat(sessionId) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Redirect to chat detail
-                window.location.href = `/chat/session/${sessionId}/`;
+                // Open in tab instead of redirect
+                openChatTab(sessionId, 'Chat übernommen');
+                refreshDashboard();
             } else {
                 alert('Fehler beim Übernehmen des Chats: ' + data.error);
             }
@@ -286,9 +336,491 @@ setInterval(() => {
 updateWaitingTimes();
 updateChatDurations();
 
-// Auto-refresh dashboard every 60 seconds
+// Chat Tab Management Functions
+function openChatTab(sessionId, visitorName) {
+    // Check if tab is already open
+    if (openChatTabs.has(sessionId)) {
+        switchToTab(sessionId);
+        return;
+    }
+    
+    // Add to open tabs
+    openChatTabs.set(sessionId, {
+        sessionId: sessionId,
+        visitorName: visitorName,
+        unreadCount: 0,
+        lastMessageId: 0
+    });
+    
+    // Take the chat first
+    fetch(`/chat/api/take/${sessionId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            createTabUI(sessionId, visitorName);
+            loadChatMessages(sessionId);
+            switchToTab(sessionId);
+            showChatTabs();
+            saveTabs();
+        } else {
+            openChatTabs.delete(sessionId);
+            alert('Fehler beim Öffnen des Chats: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        openChatTabs.delete(sessionId);
+        alert('Fehler beim Öffnen des Chats.');
+    });
+}
+
+function createTabUI(sessionId, visitorName) {
+    const tabsNav = document.getElementById('chat-tabs-nav');
+    const tabsContent = document.getElementById('chat-tabs-content');
+    
+    // Create tab button
+    const tabButton = document.createElement('div');
+    tabButton.className = 'chat-tab';
+    tabButton.id = `tab-${sessionId}`;
+    tabButton.innerHTML = `
+        <button onclick="switchToTab('${sessionId}')" style="
+            background: none; border: none; padding: 12px 16px; cursor: pointer;
+            border-right: 1px solid #dee2e6; display: flex; align-items: center; gap: 8px;
+            font-size: 14px; white-space: nowrap;
+        ">
+            <span class="tab-name">${visitorName}</span>
+            <span class="unread-badge" style="
+                background: #ff6b6b; color: white; border-radius: 10px; 
+                padding: 2px 6px; font-size: 11px; font-weight: 600; display: none;
+            ">0</span>
+            <span onclick="closeChatTab('${sessionId}'); event.stopPropagation();" style="
+                color: #868e96; hover: #495057; padding: 2px; cursor: pointer;
+                display: flex; align-items: center; justify-content: center;
+                width: 16px; height: 16px; border-radius: 3px;
+            ">&times;</span>
+        </button>
+    `;
+    tabsNav.appendChild(tabButton);
+    
+    // Create tab content
+    const tabContent = document.createElement('div');
+    tabContent.className = 'chat-tab-content';
+    tabContent.id = `content-${sessionId}`;
+    tabContent.style.display = 'none';
+    tabContent.style.height = '100%';
+    tabContent.innerHTML = `
+        <div style="height: 100%; display: flex; flex-direction: column;">
+            <!-- Chat Header -->
+            <div style="background: #f8f9fa; border-bottom: 1px solid #dee2e6; padding: 15px 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h5 style="margin: 0; font-weight: 600;">${visitorName}</h5>
+                        <small style="color: #868e96;" id="chat-status-${sessionId}">Aktiver Chat</small>
+                    </div>
+                    <button onclick="endChat('${sessionId}')" class="btn btn-danger btn-sm">
+                        Chat beenden
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Messages Area -->
+            <div id="messages-${sessionId}" style="flex: 1; overflow-y: auto; padding: 20px; background: #fff;">
+                <div style="text-align: center; color: #868e96; padding: 20px;">
+                    Lade Chat-Nachrichten...
+                </div>
+            </div>
+            
+            <!-- Message Input -->
+            <div style="border-top: 1px solid #dee2e6; padding: 15px 20px; background: #fff;">
+                <form onsubmit="sendMessage('${sessionId}'); return false;" style="display: flex; gap: 10px;">
+                    <input type="text" id="message-input-${sessionId}" placeholder="Nachricht eingeben..." 
+                           style="flex: 1; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px;">
+                    <button type="submit" class="btn btn-primary">Senden</button>
+                </form>
+            </div>
+        </div>
+    `;
+    tabsContent.appendChild(tabContent);
+}
+
+function switchToTab(sessionId) {
+    // Hide all tab contents
+    document.querySelectorAll('.chat-tab-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    
+    // Remove active class from all tabs
+    document.querySelectorAll('.chat-tab button').forEach(button => {
+        button.style.background = 'none';
+        button.style.color = '#495057';
+    });
+    
+    // Show selected tab content
+    const targetContent = document.getElementById(`content-${sessionId}`);
+    if (targetContent) {
+        targetContent.style.display = 'block';
+        activeTabId = sessionId;
+        
+        // Mark tab as active
+        const targetTab = document.querySelector(`#tab-${sessionId} button`);
+        if (targetTab) {
+            targetTab.style.background = '#667eea';
+            targetTab.style.color = 'white';
+        }
+        
+        // Clear unread count for this tab
+        if (openChatTabs.has(sessionId)) {
+            const chatData = openChatTabs.get(sessionId);
+            chatData.unreadCount = 0;
+            updateUnreadBadge(sessionId, 0);
+        }
+        
+        // Focus message input
+        const messageInput = document.getElementById(`message-input-${sessionId}`);
+        if (messageInput) {
+            messageInput.focus();
+        }
+        
+        // Scroll to bottom of messages
+        const messagesContainer = document.getElementById(`messages-${sessionId}`);
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    }
+}
+
+function closeChatTab(sessionId) {
+    if (confirm('Chat-Tab schließen? Der Chat bleibt aktiv.')) {
+        // Remove from open tabs
+        openChatTabs.delete(sessionId);
+        
+        // Remove UI elements
+        const tabElement = document.getElementById(`tab-${sessionId}`);
+        const contentElement = document.getElementById(`content-${sessionId}`);
+        
+        if (tabElement) tabElement.remove();
+        if (contentElement) contentElement.remove();
+        
+        // If this was the active tab, switch to another tab or hide tabs
+        if (activeTabId === sessionId) {
+            const remainingTabs = Array.from(openChatTabs.keys());
+            if (remainingTabs.length > 0) {
+                switchToTab(remainingTabs[0]);
+            } else {
+                hideChatTabs();
+            }
+        }
+        
+        saveTabs();
+    }
+}
+
+function showChatTabs() {
+    document.getElementById('chat-tabs').style.display = 'block';
+}
+
+function hideChatTabs() {
+    document.getElementById('chat-tabs').style.display = 'none';
+    activeTabId = null;
+}
+
+function loadChatMessages(sessionId) {
+    fetch(`/chat/api/messages/${sessionId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const messagesContainer = document.getElementById(`messages-${sessionId}`);
+                if (messagesContainer) {
+                    displayMessages(sessionId, data.messages);
+                    
+                    // Update last message ID
+                    if (openChatTabs.has(sessionId) && data.messages.length > 0) {
+                        const chatData = openChatTabs.get(sessionId);
+                        chatData.lastMessageId = Math.max(...data.messages.map(m => m.id));
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading messages:', error);
+        });
+}
+
+function displayMessages(sessionId, messages) {
+    const messagesContainer = document.getElementById(`messages-${sessionId}`);
+    if (!messagesContainer) return;
+    
+    messagesContainer.innerHTML = '';
+    
+    messages.forEach(message => {
+        const messageDiv = document.createElement('div');
+        messageDiv.style.marginBottom = '15px';
+        
+        const isFromVisitor = message.is_from_visitor;
+        const isSystem = message.message_type === 'system';
+        
+        let messageClass = 'chat-message';
+        let messageStyle = `
+            max-width: 70%; padding: 12px 16px; border-radius: 12px; 
+            word-wrap: break-word; font-size: 14px; line-height: 1.4;
+        `;
+        
+        if (isSystem) {
+            messageStyle += `
+                background: #f8f9fa; color: #495057; border: 1px solid #dee2e6;
+                margin: 10px auto; text-align: center; max-width: 90%;
+                font-style: italic;
+            `;
+        } else if (isFromVisitor) {
+            messageStyle += `
+                background: #e3f2fd; color: #1976d2; margin-left: 0; margin-right: auto;
+            `;
+        } else {
+            messageStyle += `
+                background: #667eea; color: white; margin-left: auto; margin-right: 0;
+            `;
+        }
+        
+        const timestamp = new Date(message.timestamp).toLocaleTimeString('de-DE', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        messageDiv.innerHTML = `
+            <div style="${messageStyle}">
+                <div style="font-weight: 600; margin-bottom: 4px; font-size: 12px; opacity: 0.8;">
+                    ${message.sender_name}
+                </div>
+                <div>${message.message}</div>
+                <div style="font-size: 11px; opacity: 0.7; margin-top: 6px; text-align: right;">
+                    ${timestamp}
+                </div>
+            </div>
+        `;
+        
+        messagesContainer.appendChild(messageDiv);
+    });
+    
+    // Scroll to bottom
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function sendMessage(sessionId) {
+    const messageInput = document.getElementById(`message-input-${sessionId}`);
+    if (!messageInput) return;
+    
+    const message = messageInput.value.trim();
+    if (!message) return;
+    
+    // Clear input
+    messageInput.value = '';
+    
+    // Send message
+    fetch(`/chat/api/send/${sessionId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ message: message })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload messages for this tab
+            loadChatMessages(sessionId);
+        } else {
+            alert('Fehler beim Senden der Nachricht: ' + data.error);
+            messageInput.value = message; // Restore message
+        }
+    })
+    .catch(error => {
+        console.error('Error sending message:', error);
+        alert('Fehler beim Senden der Nachricht.');
+        messageInput.value = message; // Restore message
+    });
+}
+
+function updateUnreadBadge(sessionId, count) {
+    const badge = document.querySelector(`#tab-${sessionId} .unread-badge`);
+    if (badge) {
+        if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = 'inline';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+// Notification Management
+function setupNotificationPermissions() {
+    if ("Notification" in window) {
+        if (Notification.permission === "default") {
+            Notification.requestPermission().then(permission => {
+                updateNotificationButton(permission === "granted");
+            });
+        } else {
+            updateNotificationButton(Notification.permission === "granted");
+        }
+    }
+}
+
+function toggleNotifications() {
+    if ("Notification" in window) {
+        if (Notification.permission === "granted") {
+            notificationsEnabled = !notificationsEnabled;
+            updateNotificationButton(notificationsEnabled);
+            localStorage.setItem('chatNotificationsEnabled', notificationsEnabled);
+            
+            if (notificationsEnabled) {
+                showNotification('Benachrichtigungen aktiviert', 'Sie erhalten jetzt Chat-Benachrichtigungen.');
+            }
+        } else if (Notification.permission === "default") {
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    notificationsEnabled = true;
+                    updateNotificationButton(true);
+                    localStorage.setItem('chatNotificationsEnabled', true);
+                }
+            });
+        } else {
+            alert('Benachrichtigungen sind in Ihrem Browser blockiert. Bitte aktivieren Sie sie in den Browser-Einstellungen.');
+        }
+    }
+}
+
+function updateNotificationButton(enabled) {
+    const button = document.getElementById('notification-btn');
+    if (button) {
+        if (enabled) {
+            button.style.background = '#51cf66';
+            button.style.color = 'white';
+            button.textContent = '🔔 An';
+        } else {
+            button.style.background = '#868e96';
+            button.style.color = 'white';
+            button.textContent = '🔕 Aus';
+        }
+    }
+}
+
+function showNotification(title, message) {
+    if (notificationsEnabled && "Notification" in window && Notification.permission === "granted") {
+        try {
+            notificationSound.play().catch(e => console.log('Audio play failed:', e));
+        } catch (e) {
+            console.log('Audio not supported:', e);
+        }
+        
+        new Notification(title, {
+            body: message,
+            icon: '/static/logo.jpg',
+            tag: 'chat-notification',
+            requireInteraction: false
+        });
+    }
+}
+
+// Polling for new messages
+function startPolling() {
+    // Check for new messages in open chat tabs
+    pollInterval = setInterval(() => {
+        checkForNewMessages();
+        checkForNewChats();
+    }, 3000); // Check every 3 seconds
+}
+
+function checkForNewMessages() {
+    openChatTabs.forEach((chatData, sessionId) => {
+        fetch(`/chat/api/messages/${sessionId}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.messages.length > 0) {
+                    const latestMessageId = Math.max(...data.messages.map(m => m.id));
+                    
+                    if (latestMessageId > chatData.lastMessageId) {
+                        // New messages detected
+                        const newMessages = data.messages.filter(m => m.id > chatData.lastMessageId);
+                        
+                        // Update last message ID
+                        chatData.lastMessageId = latestMessageId;
+                        
+                        // If this tab is not active, increment unread count
+                        if (activeTabId !== sessionId) {
+                            chatData.unreadCount += newMessages.filter(m => m.is_from_visitor).length;
+                            updateUnreadBadge(sessionId, chatData.unreadCount);
+                            
+                            // Show notification for new visitor messages
+                            const visitorMessages = newMessages.filter(m => m.is_from_visitor);
+                            if (visitorMessages.length > 0) {
+                                showNotification(
+                                    `Neue Nachricht von ${chatData.visitorName}`,
+                                    visitorMessages[0].message
+                                );
+                            }
+                        }
+                        
+                        // Update messages display
+                        displayMessages(sessionId, data.messages);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error checking messages:', error);
+            });
+    });
+}
+
+function checkForNewChats() {
+    // This could check for new waiting chats and show notifications
+    // For now, we'll just refresh the dashboard counts periodically
+}
+
+// Save and restore tab state
+function saveTabs() {
+    const tabData = Array.from(openChatTabs.values());
+    localStorage.setItem('openChatTabs', JSON.stringify(tabData));
+}
+
+function loadSavedTabs() {
+    try {
+        const savedTabs = localStorage.getItem('openChatTabs');
+        const savedNotificationSetting = localStorage.getItem('chatNotificationsEnabled');
+        
+        if (savedNotificationSetting) {
+            notificationsEnabled = savedNotificationSetting === 'true';
+            updateNotificationButton(notificationsEnabled);
+        }
+        
+        if (savedTabs) {
+            const tabsData = JSON.parse(savedTabs);
+            tabsData.forEach(tabData => {
+                // Re-open saved tabs
+                openChatTab(tabData.sessionId, tabData.visitorName);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading saved tabs:', error);
+        localStorage.removeItem('openChatTabs');
+    }
+}
+
+// Auto-refresh dashboard every 60 seconds (but not if user is in a chat tab)
 setInterval(() => {
-    refreshDashboard();
+    if (openChatTabs.size === 0) {
+        refreshDashboard();
+    } else {
+        // Just update counts without full refresh
+        updateCounts();
+        updateWaitingTimes();
+        updateChatDurations();
+    }
 }, 60000);
 </script>
 {% endblock %}
