@@ -249,13 +249,13 @@ class LicenseManager:
             Hex signature
         """
         signature = hmac.new(
-            cls.SECRET_KEY.encode('utf-8'),
-            data.encode('utf-8'),
+            cls.SECRET_KEY.encode(),
+            data.encode(),
             hashlib.sha256
-        ).digest()
-
-        # Return first 16 bytes as hex (32 chars)
-        return hashlib.sha256(signature).hexdigest()[:16].upper()
+        ).hexdigest()
+        
+        # Return first 16 characters (same as generator)
+        return signature[:16].upper()
 
     @classmethod
     def get_all_products(cls) -> Dict:

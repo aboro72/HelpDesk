@@ -36,6 +36,164 @@ from urllib.parse import urlparse, parse_qs
 import threading
 import webbrowser
 import os
+import urllib.request
+import re
+import ssl
+from html.parser import HTMLParser
+
+# ============================================================================
+# PRICING FETCHER - Holt aktuelle Preise von aboro-it.net
+# ============================================================================
+
+class PricingFetcher:
+    """Fetches current pricing from aboro-it.net/pricing/"""
+    
+    PRICING_URL = "https://aboro-it.net/pricing/"
+    _cached_pricing = None
+    _cache_timestamp = None
+    CACHE_DURATION = 3600  # 1 hour in seconds
+    
+    @classmethod
+    def fetch_pricing(cls, force_refresh=False):
+        """Fetch current pricing from website with caching"""
+        # Check if cache is still valid
+        if not force_refresh and cls._cached_pricing and cls._cache_timestamp:
+            age = (datetime.now() - cls._cache_timestamp).total_seconds()
+            if age < cls.CACHE_DURATION:
+                print(f"[INFO] Using cached pricing (age: {int(age/60)} minutes)")
+                return cls._cached_pricing
+        
+        # Try to fetch fresh pricing
+        try:
+            print("[INFO] Fetching current pricing from aboro-it.net...")
+            
+            # Create SSL context that doesn't verify certificates (for development)
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            # Add headers to appear like a regular browser
+            request = urllib.request.Request(
+                cls.PRICING_URL,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            )
+            
+            with urllib.request.urlopen(request, context=ssl_context, timeout=15) as response:
+                if response.getcode() == 200:
+                    html = response.read().decode('utf-8')
+                    pricing = cls._parse_pricing(html)
+                    
+                    # Cache successful result
+                    cls._cached_pricing = pricing
+                    cls._cache_timestamp = datetime.now()
+                    
+                    return pricing
+                else:
+                    print(f"[WARNING] HTTP {response.getcode()} from website")
+                    return cls._get_fallback_pricing()
+                    
+        except urllib.error.HTTPError as e:
+            print(f"[WARNING] HTTP Error {e.code} fetching pricing: {e.reason}")
+            return cls._get_fallback_pricing()
+        except urllib.error.URLError as e:
+            print(f"[WARNING] URL Error fetching pricing: {e.reason}")
+            return cls._get_fallback_pricing()
+        except ssl.SSLError as e:
+            print(f"[WARNING] SSL Error fetching pricing: {e}")
+            return cls._get_fallback_pricing()
+        except Exception as e:
+            print(f"[WARNING] Unexpected error fetching pricing: {e}")
+            return cls._get_fallback_pricing()
+    
+    @classmethod
+    def _parse_pricing(cls, html):
+        """Parse pricing information from HTML"""
+        try:
+            # Parse pricing with regex patterns
+            pricing_data = {}
+            
+            # Starter Plan - €149/month
+            starter_match = re.search(r'€(\d+).*?month.*?Starter.*?1-5 agents', html, re.IGNORECASE | re.DOTALL)
+            if starter_match:
+                pricing_data['STARTER'] = {
+                    'name': 'Starter Plan',
+                    'agents': 5,
+                    'features': ['tickets', 'email', 'knowledge_base', 'smtp_imap'],
+                    'monthly_price': int(starter_match.group(1)),
+                }
+            
+            # Professional Plan - €349/month  
+            professional_match = re.search(r'€(\d+).*?month.*?Professional.*?5-20 agents', html, re.IGNORECASE | re.DOTALL)
+            if professional_match:
+                pricing_data['PROFESSIONAL'] = {
+                    'name': 'Professional Plan',
+                    'agents': 20,
+                    'features': ['tickets', 'email', 'knowledge_base', 'live_chat', 'ai_automation', 'custom_branding', 'api_basic'],
+                    'monthly_price': int(professional_match.group(1)),
+                }
+            
+            # Enterprise Plan - €799/month
+            enterprise_match = re.search(r'€(\d+).*?month.*?Enterprise.*?20\+ agents', html, re.IGNORECASE | re.DOTALL)
+            if enterprise_match:
+                pricing_data['ENTERPRISE'] = {
+                    'name': 'Enterprise Plan',
+                    'agents': 999,
+                    'features': ['tickets', 'email', 'knowledge_base', 'live_chat', 'ai_automation', 'custom_branding', 'api_full', 'sso_ldap', 'sla'],
+                    'monthly_price': int(enterprise_match.group(1)),
+                }
+            
+            # Add On-Premise plan (not on website, custom pricing)
+            pricing_data['ON_PREMISE'] = {
+                'name': 'On-Premise License',
+                'agents': 999,
+                'features': ['tickets', 'email', 'knowledge_base', 'ai_automation', 'custom_branding', 'api_full', 'sso_ldap', 'sla', 'on_premise'],
+                'monthly_price': 2500,  # Custom pricing for on-premise
+            }
+            
+            if len(pricing_data) >= 3:  # At least 3 plans found
+                print("[INFO] Successfully fetched current pricing from website")
+                return pricing_data
+            else:
+                print("[WARNING] Could not parse all pricing data from website, using fallback")
+                return cls._get_fallback_pricing()
+                
+        except Exception as e:
+            print(f"[WARNING] Error parsing pricing data: {e}")
+            return cls._get_fallback_pricing()
+    
+    @classmethod
+    def _get_fallback_pricing(cls):
+        """Fallback pricing if website is not accessible"""
+        print("[INFO] Using fallback pricing (last known prices)")
+        return {
+            'STARTER': {
+                'name': 'Starter Plan',
+                'agents': 5,
+                'features': ['tickets', 'email', 'knowledge_base', 'smtp_imap'],
+                'monthly_price': 149,  # €149/month from website
+            },
+            'PROFESSIONAL': {
+                'name': 'Professional Plan',
+                'agents': 20,
+                'features': ['tickets', 'email', 'knowledge_base', 'live_chat', 'ai_automation', 'custom_branding', 'api_basic'],
+                'monthly_price': 349,  # €349/month from website
+            },
+            'ENTERPRISE': {
+                'name': 'Enterprise Plan',
+                'agents': 999,
+                'features': ['tickets', 'email', 'knowledge_base', 'live_chat', 'ai_automation', 'custom_branding', 'api_full', 'sso_ldap', 'sla'],
+                'monthly_price': 799,  # €799/month from website
+            },
+            'ON_PREMISE': {
+                'name': 'On-Premise License',
+                'agents': 999,
+                'features': ['tickets', 'email', 'knowledge_base', 'ai_automation', 'custom_branding', 'api_full', 'sso_ldap', 'sla', 'on_premise'],
+                'monthly_price': 2500,  # Custom pricing
+            },
+        }
+
 
 # ============================================================================
 # STANDALONE LICENSE MANAGER (Same as CLI version)
@@ -45,33 +203,23 @@ class StandaloneLicenseManager:
     """Standalone license code generator - SAME algorithm as Helpdesk"""
 
     SECRET_KEY = "ABoro-Soft-Helpdesk-License-Key-2025"
-
-    PRODUCTS = {
-        'STARTER': {
-            'name': 'Starter Plan',
-            'agents': 5,
-            'features': ['tickets', 'email', 'knowledge_base'],
-            'monthly_price': 199,
-        },
-        'PROFESSIONAL': {
-            'name': 'Professional Plan',
-            'agents': 20,
-            'features': ['tickets', 'email', 'knowledge_base', 'ai_automation', 'custom_branding', 'api_basic'],
-            'monthly_price': 499,
-        },
-        'ENTERPRISE': {
-            'name': 'Enterprise Plan',
-            'agents': 999,
-            'features': ['tickets', 'email', 'knowledge_base', 'ai_automation', 'custom_branding', 'api_full', 'sso_ldap', 'sla'],
-            'monthly_price': 1299,
-        },
-        'ON_PREMISE': {
-            'name': 'On-Premise License',
-            'agents': 999,
-            'features': ['tickets', 'email', 'knowledge_base', 'ai_automation', 'custom_branding', 'api_full', 'sso_ldap', 'sla', 'on_premise'],
-            'monthly_price': 10000,
-        },
-    }
+    
+    # Dynamic products - loaded from website on startup
+    PRODUCTS = {}
+    
+    @classmethod
+    def _ensure_products_loaded(cls):
+        """Ensure products are loaded from website"""
+        if not cls.PRODUCTS:
+            print("[INFO] Loading current pricing from aboro-it.net...")
+            cls.PRODUCTS = PricingFetcher.fetch_pricing()
+            print(f"[INFO] Loaded {len(cls.PRODUCTS)} product plans")
+    
+    @classmethod
+    def get_products(cls):
+        """Get current products with pricing"""
+        cls._ensure_products_loaded()
+        return cls.PRODUCTS
 
     @classmethod
     def _generate_signature(cls, data: str) -> str:
@@ -86,6 +234,8 @@ class StandaloneLicenseManager:
     @classmethod
     def generate_license_code(cls, product: str, duration_months: int, start_date=None) -> str:
         """Generate a license code"""
+        cls._ensure_products_loaded()
+        
         if product not in cls.PRODUCTS:
             raise ValueError(f"Invalid product: {product}")
 
@@ -120,6 +270,8 @@ class StandaloneLicenseManager:
     @classmethod
     def get_license_info(cls, license_code: str) -> dict:
         """Parse license code and return information"""
+        cls._ensure_products_loaded()
+        
         parts = license_code.split('-')
         if len(parts) != 5:
             raise ValueError("Invalid license code format")
@@ -170,12 +322,29 @@ class LicenseGeneratorHandler(BaseHTTPRequestHandler):
             self.wfile.write(self.get_html().encode('utf-8'))
 
         elif path == '/api/products':
+            products = StandaloneLicenseManager.get_products()
             self.send_json_response({
                 'products': [
                     {'code': k, 'name': v['name'], 'agents': v['agents'], 'price': v['monthly_price']}
-                    for k, v in StandaloneLicenseManager.PRODUCTS.items()
+                    for k, v in products.items()
                 ]
             })
+            
+        elif path == '/api/refresh-pricing':
+            try:
+                print("[INFO] Manual pricing refresh requested...")
+                pricing = PricingFetcher.fetch_pricing(force_refresh=True)
+                StandaloneLicenseManager.PRODUCTS = pricing
+                self.send_json_response({
+                    'success': True,
+                    'message': 'Pricing refreshed successfully',
+                    'products_count': len(pricing)
+                })
+            except Exception as e:
+                self.send_json_response({
+                    'success': False,
+                    'error': str(e)
+                }, status=500)
 
         else:
             self.send_error(404)
@@ -485,6 +654,10 @@ class LicenseGeneratorHandler(BaseHTTPRequestHandler):
         <div class="header">
             <h1>License Generator</h1>
             <p>ABoro-Soft Helpdesk</p>
+            <button onclick="refreshPricing()" class="btn btn-sm" style="
+                padding: 6px 12px; font-size: 12px; width: auto; margin-top: 10px;
+                background: #28a745; border: none; border-radius: 4px; color: white;
+            ">🔄 Preise aktualisieren</button>
         </div>
 
         <div class="warning">
@@ -564,7 +737,7 @@ class LicenseGeneratorHandler(BaseHTTPRequestHandler):
                 data.products.forEach(product => {
                     const option = document.createElement('option');
                     option.value = product.code;
-                    option.textContent = `${product.code} - ${product.name} ($${product.price}/month)`;
+                    option.textContent = `${product.code} - ${product.name} (€${product.price}/month)`;
                     select.appendChild(option);
                 });
             } catch (error) {
@@ -654,6 +827,26 @@ class LicenseGeneratorHandler(BaseHTTPRequestHandler):
             navigator.clipboard.writeText(code).then(() => {
                 alert('License code copied to clipboard!');
             });
+        }
+        
+        async function refreshPricing() {
+            try {
+                showLoading(true);
+                const response = await fetch('/api/refresh-pricing');
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(`Preise erfolgreich aktualisiert! ${data.products_count} Produkte geladen.`);
+                    // Reload products
+                    loadProducts();
+                } else {
+                    alert('Fehler beim Aktualisieren der Preise: ' + data.error);
+                }
+            } catch (error) {
+                alert('Fehler beim Aktualisieren der Preise: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
         }
     </script>
 </body>

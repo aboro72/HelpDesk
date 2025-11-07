@@ -5,6 +5,12 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.shortcuts import redirect
+from django.http import HttpResponseRedirect
+
+# Redirect function for admin-panel URLs
+def redirect_admin_panel_license(request):
+    return HttpResponseRedirect('/license/')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -12,6 +18,8 @@ urlpatterns = [
     path('tickets/', include('apps.tickets.urls')),
     path('kb/', include('apps.knowledge.urls')),
     path('chat/', include('apps.chat.urls')),
+    path('admin-panel/license/', redirect_admin_panel_license, name='admin_panel_license_redirect'),
+    path('admin-panel/', include('apps.admin_panel.urls')),
     # path('api/v1/', include('apps.api.urls')),  # Uncomment when REST framework is installed
     path('', include('apps.main.urls')),
 ]
