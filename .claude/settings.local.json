@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(nslookup:*)"
+      "Bash(nslookup:*)",
+      "WebFetch(domain:aboro-it.net)",
+      "Bash(python manage.py makemigrations:*)",
+      "Bash(python manage.py migrate:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

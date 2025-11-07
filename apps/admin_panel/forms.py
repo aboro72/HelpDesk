@@ -27,20 +27,20 @@ class SystemSettingsForm(forms.ModelForm):
         })
     )
 
-    # Statistics Permissions
+    # Statistics Permissions (OPTIONAL)
     can_admin_view_stats = forms.BooleanField(
         required=False,
-        label='Admin - Can View All Statistics',
+        label='Admin - Can View All Statistics (Optional)',
         initial=True
     )
     can_agent_view_stats = forms.BooleanField(
         required=False,
-        label='Support Agent - Can View Statistics',
+        label='Support Agent - Can View Statistics (Optional)',
         initial=False
     )
     can_customer_view_stats = forms.BooleanField(
         required=False,
-        label='Customer - Can View Own Statistics',
+        label='Customer - Can View Own Statistics (Optional)',
         initial=False
     )
 

@@ -332,13 +332,9 @@ def manage_license(request):
             license_code = form.cleaned_data['license_code']
             license_info = form.get_license_info()
 
-            # Update system settings
+            # Update system settings - Only license code and validation timestamp
+            # All other license info is now automatically derived from the license code
             settings_obj.license_code = license_code
-            settings_obj.license_product = license_info.get('product', 'STARTER')
-            settings_obj.license_expiry_date = datetime.strptime(license_info.get('expiry_date'), '%Y-%m-%d').date()
-            settings_obj.license_max_agents = license_info.get('max_agents', 5)
-            settings_obj.license_features = license_info.get('features', [])
-            settings_obj.license_valid = True
             settings_obj.license_last_validated = timezone_now()
             settings_obj.updated_by = request.user
             settings_obj.save()
@@ -362,12 +358,11 @@ def manage_license(request):
                 f'Lizenz erfolgreich aktiviert! Produkt: {license_info.get("product_name")}, '
                 f'Gültig bis: {license_info.get("expiry_date")}'
             )
-            return redirect('admin:manage_license')
+            return redirect('/license/')
     else:
         form = LicenseForm()
-        # Load current license info if exists
-        if settings_obj.license_code:
-            license_info = LicenseManager.get_license_info(settings_obj.license_code)
+        # Load current license info automatically from license code
+        license_info = settings_obj.get_license_info()
 
     context = {
         'page_title': 'Lizenzverwaltung',

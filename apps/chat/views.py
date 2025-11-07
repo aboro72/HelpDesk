@@ -578,3 +578,45 @@ def chat_detail(request, session_id):
     }
     
     return render(request, 'chat/chat_detail.html', context)
+
+
+@login_required
+def dashboard_stats(request):
+    """Get dashboard statistics for agents (AJAX endpoint)"""
+    if request.user.role not in ['support_agent', 'admin']:
+        return JsonResponse({'success': False, 'error': 'Access denied'})
+    
+    try:
+        # Get chat counts
+        waiting_chats = ChatSession.objects.filter(status='waiting').count()
+        escalated_chats = ChatSession.objects.filter(status='escalated').count()
+        active_chats = ChatSession.objects.filter(
+            status='active',
+            assigned_agent=request.user
+        ).count()
+        
+        # Get AI-handled chats (active but no assigned agent)
+        ai_handled_chats = ChatSession.objects.filter(
+            status='active',
+            assigned_agent__isnull=True
+        ).count()
+        
+        # Get today's handled chats
+        today_handled = ChatSession.objects.filter(
+            status='ended',
+            ended_at__date=timezone.now().date(),
+            assigned_agent=request.user
+        ).count()
+        
+        return JsonResponse({
+            'success': True,
+            'waiting_chats': waiting_chats,
+            'escalated_chats': escalated_chats,
+            'active_chats': active_chats,
+            'ai_handled_chats': ai_handled_chats,
+            'today_handled': today_handled,
+            'timestamp': timezone.now().isoformat()
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

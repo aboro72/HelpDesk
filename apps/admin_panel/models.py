@@ -3,6 +3,7 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.utils.timezone import now as timezone_now
 import json
+from apps.api.license_manager import LicenseManager
 
 
 class SystemSettings(models.Model):
@@ -51,11 +52,12 @@ class SystemSettings(models.Model):
         help_text='Choose which rich text editor to use throughout the application'
     )
 
-    # Statistics Access Permissions (JSON storage for flexibility)
+    # Statistics Access Permissions (JSON storage for flexibility) - OPTIONAL
     stats_permissions = models.JSONField(
-        _('Statistics Permissions'),
+        _('Statistics Permissions (Optional)'),
         default=dict,
-        help_text='Which user roles can access which statistics'
+        blank=True,
+        help_text='Erweiterte Statistik-Berechtigungen (optional, leer lassen falls nicht benötigt)'
     )
 
     # File Upload Settings
@@ -72,47 +74,13 @@ class SystemSettings(models.Model):
     email_signature = models.TextField(_('Email Signature'), blank=True,
                                       help_text='Signature added to all outgoing emails')
 
-    # License Configuration
+    # License Configuration - SIMPLIFIED
     license_code = models.CharField(
         _('License Code'),
         max_length=255,
         blank=True,
         null=True,
-        help_text='ABoro-Soft Helpdesk License Code (format: PRODUCT-VERSION-DURATION-EXPIRY-SIGNATURE)'
-    )
-    license_product = models.CharField(
-        _('License Product'),
-        max_length=50,
-        choices=[
-            ('STARTER', 'Starter (€199/month - 5 agents)'),
-            ('PROFESSIONAL', 'Professional (€499/month - 20 agents)'),
-            ('ENTERPRISE', 'Enterprise (€1,299/month - unlimited)'),
-            ('ON_PREMISE', 'On-Premise (€10,000 one-time)'),
-            ('TRIAL', 'Free Trial (30 days)'),
-        ],
-        default='TRIAL',
-        help_text='Current license type'
-    )
-    license_expiry_date = models.DateField(
-        _('License Expiry Date'),
-        null=True,
-        blank=True,
-        help_text='When the current license expires'
-    )
-    license_max_agents = models.IntegerField(
-        _('License Max Agents'),
-        default=5,
-        help_text='Maximum number of support agents allowed by license'
-    )
-    license_features = models.JSONField(
-        _('License Features'),
-        default=list,
-        help_text='List of enabled features for current license'
-    )
-    license_valid = models.BooleanField(
-        _('License Valid'),
-        default=False,
-        help_text='Indicates if the current license is valid'
+        help_text='ABoro-Soft Helpdesk License Code - alle Features werden automatisch erkannt'
     )
     license_last_validated = models.DateTimeField(
         _('License Last Validated'),
@@ -283,6 +251,103 @@ class SystemSettings(models.Model):
             return json.loads(self.allowed_file_types) if isinstance(self.allowed_file_types, str) else []
         except:
             return []
+
+    # ===============================================================
+    # LICENSE METHODS - Automatic detection from license code
+    # ===============================================================
+    
+    def get_license_info(self):
+        """Get current license information automatically from license code"""
+        if not self.license_code:
+            return {
+                'product': 'TRIAL',
+                'product_name': 'Free Trial',
+                'valid': True,
+                'max_agents': 5,
+                'features': ['tickets', 'email', 'knowledge_base'],
+                'expiry_date': None,
+                'days_remaining': 30,
+                'message': 'Trial Mode - 30 days'
+            }
+        
+        license_info = LicenseManager.get_license_info(self.license_code)
+        if license_info:
+            return license_info
+        else:
+            return {
+                'product': 'INVALID',
+                'product_name': 'Invalid License',
+                'valid': False,
+                'max_agents': 0,
+                'features': [],
+                'expiry_date': None,
+                'days_remaining': 0,
+                'message': 'Invalid license code'
+            }
+    
+    def get_license_product(self):
+        """Get license product code"""
+        return self.get_license_info()['product']
+    
+    def get_license_product_name(self):
+        """Get license product display name"""
+        return self.get_license_info()['product_name']
+    
+    def get_license_max_agents(self):
+        """Get maximum agents allowed by license"""
+        return self.get_license_info()['max_agents']
+    
+    def get_license_features(self):
+        """Get features enabled by license"""
+        return self.get_license_info()['features']
+    
+    def is_license_valid(self):
+        """Check if current license is valid"""
+        return self.get_license_info()['valid']
+    
+    def get_license_expiry_date(self):
+        """Get license expiry date"""
+        return self.get_license_info().get('expiry_date')
+    
+    def get_license_days_remaining(self):
+        """Get days remaining on license"""
+        return self.get_license_info().get('days_remaining', 0)
+    
+    def has_feature(self, feature_name):
+        """Check if specific feature is enabled by license"""
+        return feature_name in self.get_license_features()
+    
+    def can_add_agent(self):
+        """Check if more agents can be added based on license"""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        current_agents = User.objects.filter(
+            role__in=['support_agent', 'admin'],
+            is_active=True
+        ).count()
+        
+        max_agents = self.get_license_max_agents()
+        return current_agents < max_agents
+    
+    def get_agent_usage(self):
+        """Get current agent usage vs license limit"""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        current_agents = User.objects.filter(
+            role__in=['support_agent', 'admin'],
+            is_active=True
+        ).count()
+        
+        max_agents = self.get_license_max_agents()
+        
+        return {
+            'current': current_agents,
+            'max': max_agents,
+            'remaining': max(0, max_agents - current_agents),
+            'percentage': round((current_agents / max_agents) * 100, 1) if max_agents > 0 else 0
+        }
 
 
 class AuditLog(models.Model):

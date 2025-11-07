@@ -13,6 +13,7 @@ urlpatterns = [
     
     # Agent endpoints
     path('dashboard/', views.agent_dashboard, name='agent_dashboard'),
+    path('api/dashboard/stats/', views.dashboard_stats, name='dashboard_stats'),
     path('api/take/<str:session_id>/', views.agent_take_chat, name='agent_take_chat'),
     path('api/send/<str:session_id>/', views.agent_send_message, name='agent_send_message'),
     path('api/end/<str:session_id>/', views.end_chat, name='end_chat'),
