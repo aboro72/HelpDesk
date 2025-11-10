@@ -335,7 +335,12 @@ function sendMessage() {
         },
         body: JSON.stringify({ message: message })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (!data.success) {
             throw new Error(data.error || 'Fehler beim Senden');
@@ -347,7 +352,7 @@ function sendMessage() {
     })
     .catch(error => {
         console.error('Send error:', error);
-        alert('Fehler beim Senden der Nachricht');
+        alert('Fehler beim Senden der Nachricht: ' + error.message);
         textarea.disabled = false;
         document.getElementById('send-button').disabled = false;
     });
@@ -386,9 +391,14 @@ function refreshMessages() {
     if (lastMessageTime) {
         params.append('since', lastMessageTime);
     }
-    
+
     fetch(`/chat/agent/messages/${currentSessionId}/?${params}`)
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success && data.messages.length > 0) {
             data.messages.forEach(msg => {
@@ -396,12 +406,12 @@ function refreshMessages() {
                     addReceivedMessageToUI(msg);
                 }
             });
-            
+
             // Update last message time
             const latestMessage = data.messages[data.messages.length - 1];
             lastMessageTime = latestMessage.timestamp;
         }
-        
+
         // Update session status
         updateSessionStatus(data.session_status, data.assigned_agent);
     })
@@ -462,21 +472,29 @@ function useFaqTemplate(articleId) {
         },
         body: JSON.stringify({ article_id: articleId })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             document.getElementById('message-input').value = data.template;
             document.getElementById('message-input').focus();
+        } else {
+            alert(data.error || 'Fehler beim Laden des FAQ-Templates');
         }
     })
     .catch(error => {
         console.error('FAQ template error:', error);
+        alert('Fehler beim Laden des FAQ-Templates: ' + error.message);
     });
 }
 
 function transferToAI() {
     if (!confirm('Chat-Session an KI übertragen?')) return;
-    
+
     fetch(`/chat/agent/transfer-ai/${currentSessionId}/`, {
         method: 'POST',
         headers: {
@@ -484,36 +502,47 @@ function transferToAI() {
             'Content-Type': 'application/json'
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             alert('Session an KI übertragen');
             window.location.href = '/chat/agent/';
         } else {
-            alert(data.error);
+            alert(data.error || 'Fehler beim Übertragen an KI');
         }
     })
     .catch(error => {
         console.error('Transfer error:', error);
+        alert('Fehler beim Übertragen an KI: ' + error.message);
     });
 }
 
 function closeSession() {
     const reason = prompt('Grund für Schließung (optional):') || 'Von Agent geschlossen';
     const createTicket = confirm('Soll ein Ticket erstellt werden?');
-    
+
     fetch(`/chat/agent/close/${currentSessionId}/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken'),
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
             reason: reason,
             create_ticket: createTicket
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             let message = 'Session geschlossen';
@@ -523,39 +552,46 @@ function closeSession() {
             alert(message);
             window.location.href = '/chat/agent/';
         } else {
-            alert(data.error);
+            alert(data.error || 'Fehler beim Schließen der Session');
         }
     })
     .catch(error => {
         console.error('Close error:', error);
+        alert('Fehler beim Schließen der Session: ' + error.message);
     });
 }
 
 function createTicket() {
     const reason = prompt('Grund für Ticket-Erstellung:') || 'Manuelle Ticket-Erstellung';
-    
+
     fetch(`/chat/agent/close/${currentSessionId}/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken'),
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
             reason: reason,
             create_ticket: true
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             alert(`Ticket ${data.ticket_number} erstellt`);
             window.location.href = '/chat/agent/';
         } else {
-            alert(data.error);
+            alert(data.error || 'Fehler beim Erstellen des Tickets');
         }
     })
     .catch(error => {
         console.error('Create ticket error:', error);
+        alert('Fehler beim Erstellen des Tickets: ' + error.message);
     });
 }
 

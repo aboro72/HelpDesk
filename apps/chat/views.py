@@ -320,16 +320,29 @@ def start_chat(request):
         session_id = data.get('session_id') or f"web_{uuid.uuid4().hex[:8]}_{int(time.time())}"
         name = (data.get('name') or 'Website Besucher').strip()
         email = (data.get('email') or f"visitor@{request.get_host()}").strip()
-        message = data.get('message') or (f"Chat gestartet von {ref}" if ref else 'Chat gestartet')
+        message = data.get('message', '').strip()
         page_url = data.get('page_url') or ref
-        
+
+        # Check if this is a real user message or just a generic "Chat started" message
+        # Generic messages from widget: "Chat gestartet von https://..." or "Chat gestartet"
+        is_generic_message = (
+            message.startswith('Chat gestartet von ') or
+            message == 'Chat gestartet' or
+            not message  # Empty message
+        )
+        has_user_message = bool(message) and not is_generic_message
+
+        # Use generic message if user didn't provide one
+        if not message:
+            message = f"Chat gestartet von {ref}" if ref else 'Chat gestartet'
+
         # Get visitor IP
         visitor_ip = request.META.get('HTTP_X_FORWARDED_FOR')
         if visitor_ip:
             visitor_ip = visitor_ip.split(',')[0]
         else:
             visitor_ip = request.META.get('REMOTE_ADDR')
-        
+
         # Create chat session
         session = ChatSession.objects.create(
             session_id=session_id,
@@ -340,7 +353,7 @@ def start_chat(request):
             visitor_page_url=page_url,
             status='waiting'
         )
-        
+
         # Create initial message
         ChatMessage.objects.create(
             session=session,
@@ -349,45 +362,14 @@ def start_chat(request):
             sender_name=name,
             message_type='text'
         )
-        
-        # Auto-assign if enabled AND agents are actually online
-        settings = ChatSettings.get_settings()
-        if settings.auto_assign:
-            # Check for truly online agents (with recent activity)
-            from datetime import timedelta
-            online_threshold = timezone.now() - timedelta(minutes=5)
-            
-            try:
-                available_agent = User.objects.filter(
-                    role__in=['support_agent', 'admin'],
-                    is_active=True,
-                    last_activity__gte=online_threshold
-                ).first()
-            except:
-                # If last_activity field doesn't exist, don't auto-assign
-                available_agent = None
-            
-            if available_agent:
-                session.assigned_agent = available_agent
-                session.status = 'active'
-                session.save()
-                
-                # Send system message
-                ChatMessage.objects.create(
-                    session=session,
-                    message=f"👋 {available_agent.full_name} hat den Chat übernommen.",
-                    is_from_visitor=False,
-                    sender_name="System",
-                    message_type='system'
-                )
-        
-        # If no agent assigned and AI is enabled, trigger AI response
-        if should_send_ai_response(session):
+
+        # KI antwortet NUR wenn der Benutzer tatsächlich eine Frage gestellt hat (nicht bei generischen Chat-Start-Nachrichten)
+        if has_user_message and should_send_ai_response(session):
             # Start AI response in background thread
-                ai_thread = threading.Thread(
-                    target=send_ai_response,
-                    args=(session.session_id, message)
-                )
+            ai_thread = threading.Thread(
+                target=send_ai_response,
+                args=(session.session_id, message)
+            )
             ai_thread.daemon = True
             ai_thread.start()
         

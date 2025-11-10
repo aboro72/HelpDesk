@@ -858,10 +858,20 @@ function refreshDashboard() {
 }
 
 function takeSession(sessionId) {
-    const button = event.target;
+    // Get the button element correctly (handle event target being icon inside button)
+    let button = event.target;
+    if (!button.classList.contains('take-btn-compact') && !button.classList.contains('take-session-btn')) {
+        button = button.closest('.take-btn-compact, .take-session-btn');
+    }
+
+    if (!button) {
+        alert('Button nicht gefunden');
+        return;
+    }
+
     button.disabled = true;
     button.textContent = 'Übernehme...';
-    
+
     fetch(`/chat/agent/take/${sessionId}/`, {
         method: 'POST',
         headers: {
@@ -869,7 +879,13 @@ function takeSession(sessionId) {
             'Content-Type': 'application/json'
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        // Check HTTP response status
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             window.location.href = `/chat/agent/session/${sessionId}/`;
@@ -881,7 +897,7 @@ function takeSession(sessionId) {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Netzwerk-Fehler');
+        alert('Netzwerk-Fehler: ' + error.message);
         button.disabled = false;
         button.textContent = 'Übernehmen';
     });

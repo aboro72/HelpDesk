@@ -13,7 +13,9 @@
       "Bash(timeout:*)",
       "Bash(copy:*)",
       "Bash(cp:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(nul)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

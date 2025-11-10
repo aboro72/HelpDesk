@@ -289,6 +289,17 @@
             }
         }
         
+        escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
         addMessage(sender, message, isFromUser = false, isSystem = false) {
             const messageDiv = document.createElement('div');
             messageDiv.style.cssText = `
@@ -296,7 +307,11 @@
                 display: flex;
                 ${isFromUser ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
             `;
-            
+
+            // First escape HTML, then convert \n to <br> for proper line breaks in display
+            const escapedMessage = this.escapeHtml(message);
+            const displayMessage = escapedMessage.replace(/\\n/g, '<br>');
+
             if (isSystem) {
                 messageDiv.innerHTML = `
                     <div style="
@@ -308,7 +323,7 @@
                         text-align: center;
                         width: 100%;
                         font-style: italic;
-                    ">${message}</div>
+                    ">${displayMessage}</div>
                 `;
             } else {
                 const messageBubble = document.createElement('div');
@@ -318,15 +333,16 @@
                     border-radius: 18px;
                     font-size: 14px;
                     word-wrap: break-word;
-                    ${isFromUser ? 
-                        `background: ${config.widgetColor}; color: white; margin-left: 20%;` : 
+                    white-space: pre-wrap;
+                    ${isFromUser ?
+                        `background: ${config.widgetColor}; color: white; margin-left: 20%;` :
                         'background: white; border: 1px solid #ddd; margin-right: 20%; color: #333;'
                     }
                 `;
-                messageBubble.textContent = message;
+                messageBubble.innerHTML = displayMessage;
                 messageDiv.appendChild(messageBubble);
             }
-            
+
             this.messagesArea.appendChild(messageDiv);
             this.messagesArea.scrollTop = this.messagesArea.scrollHeight;
         }

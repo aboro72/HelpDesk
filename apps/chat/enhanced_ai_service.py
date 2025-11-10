@@ -74,32 +74,32 @@ class EnhancedAIService:
     def _search_relevant_faqs(self, message: str) -> List[KnowledgeArticle]:
         """Suche relevante FAQ-Artikel basierend auf der Nachricht"""
         try:
-            # Nur öffentliche Artikel (nicht interne)
+            # Nur öffentliche und veröffentlichte Artikel
             base_query = KnowledgeArticle.objects.filter(
                 is_public=True,
-                is_published=True
+                status='published'
             )
-            
+
             # Keywords aus der Nachricht extrahieren
             keywords = self._extract_keywords(message)
-            
+
             if not keywords:
                 return []
-            
+
             # Suche nach relevanten Artikeln
             query = Q()
             for keyword in keywords:
                 query |= (
                     Q(title__icontains=keyword) |
                     Q(content__icontains=keyword) |
-                    Q(tags__icontains=keyword)
+                    Q(keywords__icontains=keyword)
                 )
-            
+
             relevant_articles = base_query.filter(query).distinct()[:5]
-            
-            logger.info(f"Found {relevant_articles.count()} relevant FAQ articles for: {keywords}")
+
+            logger.info(f"Found {len(relevant_articles)} relevant FAQ articles for: {keywords}")
             return list(relevant_articles)
-            
+
         except Exception as e:
             logger.error(f"FAQ search error: {e}")
             return []
@@ -108,21 +108,22 @@ class EnhancedAIService:
         """Extrahiere relevante Keywords aus der Nachricht"""
         # Bereinige die Nachricht
         message = message.lower().strip()
-        
+
         # Entferne Stoppwörter und extrahiere wichtige Begriffe
         stopwords = {
-            'ich', 'bin', 'habe', 'kann', 'nicht', 'ist', 'das', 'der', 'die', 'und', 
+            'ich', 'bin', 'habe', 'kann', 'nicht', 'ist', 'das', 'der', 'die', 'und',
             'oder', 'aber', 'mit', 'von', 'zu', 'im', 'am', 'ein', 'eine', 'einen',
             'wie', 'was', 'wo', 'wann', 'warum', 'bitte', 'danke', 'hello', 'hi',
             'the', 'and', 'or', 'but', 'with', 'from', 'to', 'in', 'at', 'a', 'an'
         }
-        
-        # Wörter extrahieren (mindestens 3 Zeichen)
-        words = re.findall(r'\\b[a-zäöüß]{3,}\\b', message)
-        
+
+        # Wörter und Nummern extrahieren (z.B. "413", "fehler", etc.)
+        # Regex: Buchstaben (auch Umlaute) oder Nummern, mindestens 2 Zeichen
+        words = re.findall(r'\b[a-zäöüß0-9]{2,}\b', message)
+
         # Stoppwörter entfernen
         keywords = [word for word in words if word not in stopwords]
-        
+
         # Begrenzen auf die ersten 10 wichtigsten Keywords
         return keywords[:10]
     
@@ -192,16 +193,21 @@ class EnhancedAIService:
     
     def _simplify_faq_content(self, content: str) -> str:
         """Vereinfache FAQ-Inhalt für Chat-Antworten"""
+        import html
+
         # Entferne HTML-Tags falls vorhanden
         content = re.sub(r'<[^>]+>', '', content)
-        
+
+        # Dekodiere HTML-Entities (z.B. &auml; -> ä, &nbsp; -> Leerzeichen)
+        content = html.unescape(content)
+
         # Begrenzen auf ersten Absatz oder ersten 300 Zeichen
-        paragraphs = content.split('\\n\\n')
+        paragraphs = content.split('\n\n')
         simplified = paragraphs[0]
-        
+
         if len(simplified) > 300:
             simplified = simplified[:300] + "..."
-        
+
         return simplified.strip()
     
     def _get_general_response(self, message: str) -> str:
