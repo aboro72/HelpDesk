@@ -6,13 +6,16 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.clickjacking import xframe_options_exempt
+from django.template.loader import render_to_string
+from django.http import HttpResponse
 import json
 import uuid
 import time
 import threading
 from .models import ChatSession, ChatMessage, ChatSettings
-from .ai_service import get_ai_response_for_chat
+from .enhanced_ai_service import get_ai_response_for_chat
 from apps.admin_panel.models import SystemSettings
+from apps.api.license_checker import LicenseFeatureChecker, require_feature
 
 User = get_user_model()
 
@@ -93,6 +96,14 @@ def should_send_ai_response(session):
     """
     system_settings = SystemSettings.get_settings()
     
+    # Initialize license checker
+    if system_settings.license_code:
+        LicenseFeatureChecker.set_license(system_settings.license_code)
+    
+    # Check if AI automation feature is available in license
+    if not LicenseFeatureChecker.has_feature('ai_automation'):
+        return False
+    
     # Check if AI is enabled
     if not system_settings.ai_enabled:
         return False
@@ -150,6 +161,19 @@ def chat_widget(request):
     from datetime import timedelta
     online_threshold = timezone.now() - timedelta(minutes=5)
     
+    # Initialize license checker
+    system_settings = SystemSettings.get_settings()
+    if system_settings.license_code:
+        LicenseFeatureChecker.set_license(system_settings.license_code)
+    
+    # Check license restrictions (nur für interne Nutzung, nicht für Widget-Embedding)
+    embedded = request.GET.get('embedded', 'false').lower() == 'true'
+    if not embedded and not LicenseFeatureChecker.has_feature('live_chat'):
+        return render(request, 'chat/feature_restricted.html', {
+            'feature': 'Live Chat',
+            'required_license': 'Professional or higher'
+        })
+    
     # Check for available agents (simplified - just check if they're active)
     available_agents = User.objects.filter(
         role__in=['support_agent', 'admin'],
@@ -169,13 +193,14 @@ def chat_widget(request):
         # If last_activity field doesn't exist, assume no agents online for proper AI fallback
         available_agents = 0
     
-    # Check AI availability
-    system_settings = SystemSettings.get_settings()
-    ai_available = system_settings.ai_enabled
+    # Check AI availability (requires ai_automation license feature)
+    ai_available = (system_settings.ai_enabled and 
+                   LicenseFeatureChecker.has_feature('ai_automation'))
     
-    # Check if loaded in iframe
+    # Check if loaded in iframe or as embedded widget
     is_iframe = request.GET.get('iframe', 'false').lower() == 'true' or \
                request.headers.get('Sec-Fetch-Dest') == 'iframe'
+    is_embedded = request.GET.get('embedded', 'false').lower() == 'true'
     
     # Check if customer is logged in (from URL parameters)
     is_customer = request.GET.get('customer', 'false').lower() == 'true'
@@ -189,12 +214,40 @@ def chat_widget(request):
         'ai_available': ai_available,
         'session_id': str(uuid.uuid4()),
         'is_iframe': is_iframe,
+        'is_embedded': is_embedded,
         'is_customer': is_customer,
         'user_name': user_name,
         'user_email': user_email,
     }
     
-    return render(request, 'chat/widget.html', context)
+    response = render(request, 'chat/widget.html', context)
+    
+    # Zusätzlich sicherstellen, dass keine frame-blocking Headers gesetzt sind
+    if 'X-Frame-Options' in response:
+        del response['X-Frame-Options']
+    
+    # Setze explizit CSP für iframe-Einbettung
+    origin = request.META.get('HTTP_ORIGIN', '')
+    referer = request.META.get('HTTP_REFERER', '')
+    
+    if origin or referer:
+        # Hole erlaubte Domains
+        chat_settings = ChatSettings.get_settings()
+        allowed_domains = [d.strip() for d in chat_settings.allowed_domains.split(',') if d.strip()]
+        
+        # Prüfe ob Request von erlaubter Domain kommt
+        is_allowed = any(
+            (origin and origin.startswith(allowed)) or 
+            (referer and referer.startswith(allowed))
+            for allowed in allowed_domains
+        )
+        
+        if is_allowed:
+            response['Content-Security-Policy'] = f"frame-ancestors 'self' {' '.join(allowed_domains)}"
+        else:
+            response['Content-Security-Policy'] = "frame-ancestors 'none'"
+    
+    return response
 
 
 def widget_data(request):
@@ -257,7 +310,18 @@ def widget_data(request):
 def start_chat(request):
     """Start a new chat session"""
     try:
-        data = json.loads(request.body)
+        # Robust JSON parsing; fallbacks if client sends no/invalid JSON
+        try:
+            data = json.loads(request.body)
+        except Exception:
+            data = {}
+
+        ref = request.META.get('HTTP_REFERER') or ''
+        session_id = data.get('session_id') or f"web_{uuid.uuid4().hex[:8]}_{int(time.time())}"
+        name = (data.get('name') or 'Website Besucher').strip()
+        email = (data.get('email') or f"visitor@{request.get_host()}").strip()
+        message = data.get('message') or (f"Chat gestartet von {ref}" if ref else 'Chat gestartet')
+        page_url = data.get('page_url') or ref
         
         # Get visitor IP
         visitor_ip = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -268,21 +332,21 @@ def start_chat(request):
         
         # Create chat session
         session = ChatSession.objects.create(
-            session_id=data.get('session_id'),
-            visitor_name=data.get('name'),
-            visitor_email=data.get('email'),
+            session_id=session_id,
+            visitor_name=name,
+            visitor_email=email,
             visitor_ip=visitor_ip,
-            initial_message=data.get('message'),
-            visitor_page_url=data.get('page_url'),
+            initial_message=message,
+            visitor_page_url=page_url,
             status='waiting'
         )
         
         # Create initial message
         ChatMessage.objects.create(
             session=session,
-            message=data.get('message'),
+            message=message,
             is_from_visitor=True,
-            sender_name=data.get('name'),
+            sender_name=name,
             message_type='text'
         )
         
@@ -320,10 +384,10 @@ def start_chat(request):
         # If no agent assigned and AI is enabled, trigger AI response
         if should_send_ai_response(session):
             # Start AI response in background thread
-            ai_thread = threading.Thread(
-                target=send_ai_response,
-                args=(session.session_id, data.get('message'))
-            )
+                ai_thread = threading.Thread(
+                    target=send_ai_response,
+                    args=(session.session_id, message)
+                )
             ai_thread.daemon = True
             ai_thread.start()
         
@@ -333,7 +397,7 @@ def start_chat(request):
             'status': session.status,
             'assigned_agent': session.assigned_agent.full_name if session.assigned_agent else None
         })
-        
+
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
@@ -620,3 +684,146 @@ def dashboard_stats(request):
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+def widget_script(request):
+    """
+    Serve the external chat widget JavaScript for embedding
+    """
+    settings = ChatSettings.get_settings()
+    system_settings = SystemSettings.get_settings()
+    
+    # Widget configuration
+    widget_config = {
+        'chatHost': request.build_absolute_uri('/').rstrip('/'),
+        'widgetColor': settings.widget_color,
+        'position': settings.widget_position,
+        'autoOpen': False,
+        'language': 'de'
+    }
+    
+    # Read the widget script template
+    import os
+    from django.conf import settings as django_settings
+    
+    script_path = os.path.join(django_settings.BASE_DIR, 'templates', 'chat', 'pure_widget.js')
+    
+    try:
+        with open(script_path, 'r', encoding='utf-8') as f:
+            script_content = f.read()
+    except FileNotFoundError:
+        # Fallback inline script
+        script_content = """
+        console.error('Aboro Chat Widget: Script file not found');
+        window.AboroChat = {
+            open: () => console.warn('Chat widget not available'),
+            close: () => {},
+            toggle: () => {},
+            destroy: () => {}
+        };
+        """
+    
+    # Inject configuration
+    config_js = f"window.AboroChatConfig = {json.dumps(widget_config)};"
+    script_content = config_js + "\n\n" + script_content
+    
+    response = HttpResponse(script_content, content_type='application/javascript; charset=utf-8')
+    
+    # Firefox-freundliche CORS-Header
+    origin = request.META.get('HTTP_ORIGIN', '')
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    is_firefox = 'Firefox' in user_agent
+    
+    if origin or is_firefox:
+        response['Access-Control-Allow-Origin'] = origin if origin else '*'
+        response['Access-Control-Allow-Credentials'] = 'false' if is_firefox else 'true'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Accept, Content-Type, X-Requested-With'
+        
+        if is_firefox:
+            response['Vary'] = 'Origin'
+    
+    # Cache headers (reduziert für Firefox)
+    if is_firefox:
+        response['Cache-Control'] = 'public, max-age=300'  # 5 Minuten für Firefox
+    else:
+        response['Cache-Control'] = 'public, max-age=3600'  # 1 Stunde für andere Browser
+    
+    return response
+
+
+def debug_widget_script(request):
+    """
+    Serve the debug chat widget JavaScript for troubleshooting
+    """
+    settings = ChatSettings.get_settings()
+    system_settings = SystemSettings.get_settings()
+    
+    # Widget configuration
+    widget_config = {
+        'chatHost': request.build_absolute_uri('/').rstrip('/'),
+        'widgetColor': settings.widget_color,
+        'position': settings.widget_position,
+        'autoOpen': False,
+        'language': 'de'
+    }
+    
+    # Read the debug widget script
+    import os
+    from django.conf import settings as django_settings
+    
+    script_path = os.path.join(django_settings.BASE_DIR, 'templates', 'chat', 'debug_widget.js')
+    
+    try:
+        with open(script_path, 'r', encoding='utf-8') as f:
+            script_content = f.read()
+    except FileNotFoundError:
+        # Fallback inline script
+        script_content = """
+        console.error('Aboro Debug Widget: Script file not found');
+        alert('Debug widget script not found!');
+        """
+    
+    # Inject configuration
+    config_js = f"window.AboroChatConfig = {json.dumps(widget_config)};"
+    script_content = config_js + "\n\n" + script_content
+    
+    response = HttpResponse(script_content, content_type='application/javascript; charset=utf-8')
+    
+    # Firefox-freundliche CORS-Header
+    origin = request.META.get('HTTP_ORIGIN', '')
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    is_firefox = 'Firefox' in user_agent
+    
+    if origin or is_firefox:
+        response['Access-Control-Allow-Origin'] = origin if origin else '*'
+        response['Access-Control-Allow-Credentials'] = 'false' if is_firefox else 'true'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Accept, Content-Type, X-Requested-With'
+        
+        if is_firefox:
+            response['Vary'] = 'Origin'
+    
+    # No cache for debug script
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    
+    return response
+
+
+def widget_test(request):
+    """
+    Test page for the external chat widget
+    """
+    settings = ChatSettings.get_settings()
+    
+    # Parse allowed domains
+    allowed_domains = [d.strip() for d in settings.allowed_domains.split(',') if d.strip()]
+    
+    context = {
+        'chat_settings': settings,
+        'allowed_domains': allowed_domains
+    }
+    
+    return render(request, 'chat/external_widget.html', context)

@@ -24,8 +24,23 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
-# Site URL for email links
-SITE_URL = os.environ.get('SITE_URL', 'http://localhost:8000')
+# Site URL for email links - automatisch HTTPS wenn aktiviert
+default_site_url = 'https://localhost:8000' if os.environ.get('HTTPS_ENABLED', 'True').lower() == 'true' else 'http://localhost:8000'
+SITE_URL = os.environ.get('SITE_URL', default_site_url)
+
+# Security Settings für Development
+if DEBUG:
+    # HTTPS-Umleitung in Development deaktivieren
+    SECURE_SSL_REDIRECT = False
+    SECURE_PROXY_SSL_HEADER = None
+    # HTTPS-Fehler in Development ignorieren
+    import logging
+    logging.getLogger('django.server').setLevel(logging.ERROR)
+    
+    # SSL Development Settings
+    # Erlaube selbstsignierte Zertifikate in Development
+    SECURE_SSL_HOST = None
+    SECURE_HSTS_SECONDS = 0  # Deaktiviere HSTS in Development
 
 # Application definition
 
@@ -43,6 +58,7 @@ INSTALLED_APPS = [
     # 'corsheaders',
     # 'django_celery_beat',
     # 'django_celery_results',
+    # 'django_sslserver',  # HTTPS Development Server - nur Command, nicht als App
 
     # Local apps
     'apps.accounts',
@@ -58,11 +74,13 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     # 'corsheaders.middleware.CorsMiddleware',  # Uncomment when corsheaders is installed
+    'apps.chat.middleware.ChatCorsMiddleware',  # Custom CORS middleware for chat widget
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'apps.accounts.activity_middleware.ActivityTrackingMiddleware',  # Track user activity for online status
     'django.contrib.messages.middleware.MessageMiddleware',
+    'apps.chat.middleware.ChatWidgetFrameMiddleware',  # Custom iframe middleware for chat widget
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.accounts.middleware.ForcePasswordChangeMiddleware',  # Check for forced password changes
 ]
@@ -336,7 +354,9 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    X_FRAME_OPTIONS = 'DENY'
+    # Allow iframe embedding for chat widget - configure allowed origins
+    ALLOWED_IFRAME_ORIGINS = os.environ.get('ALLOWED_IFRAME_ORIGINS', 'https://aboro-it.net,https://www.aboro-it.net').split(',')
+    X_FRAME_OPTIONS = 'SAMEORIGIN'  # Changed from DENY to allow controlled iframe embedding
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
@@ -345,6 +365,8 @@ else:
     SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
+    X_FRAME_OPTIONS = 'SAMEORIGIN'  # Allow iframe embedding in development
+    ALLOWED_IFRAME_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000', 'https://aboro-it.net', 'https://www.aboro-it.net']
 
 
 # Sentry Configuration

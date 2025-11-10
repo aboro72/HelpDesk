@@ -10,15 +10,27 @@ from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db.models import Q
 from datetime import datetime
+from apps.api.license_checker import LicenseFeatureChecker, require_feature
 
 User = get_user_model()
 
 
 @login_required
 def dashboard(request):
-    """Main dashboard view"""
+    """Main dashboard view with license checking"""
+    # Initialize license checker with current license
+    from apps.admin_panel.models import SystemSettings
+    settings_obj = SystemSettings.get_settings()
+    if settings_obj.license_code:
+        LicenseFeatureChecker.set_license(settings_obj.license_code)
+    
+    # Get license restrictions
+    license_restrictions = LicenseFeatureChecker.get_feature_restrictions()
+    
     context = {
-        'stats': request.user.get_dashboard_stats() if hasattr(request.user, 'get_dashboard_stats') else {}
+        'stats': request.user.get_dashboard_stats() if hasattr(request.user, 'get_dashboard_stats') else {},
+        'license_restrictions': license_restrictions,
+        'max_agents': LicenseFeatureChecker.get_max_agents(),
     }
     return render(request, 'dashboard/index.html', context)
 
@@ -30,6 +42,16 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['stats'] = self.request.user.get_dashboard_stats()
+        
+        # Add license information
+        from apps.admin_panel.models import SystemSettings
+        settings_obj = SystemSettings.get_settings()
+        if settings_obj.license_code:
+            LicenseFeatureChecker.set_license(settings_obj.license_code)
+        
+        context['license_restrictions'] = LicenseFeatureChecker.get_feature_restrictions()
+        context['max_agents'] = LicenseFeatureChecker.get_max_agents()
+        
         return context
 
 

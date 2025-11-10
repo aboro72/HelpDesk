@@ -5,7 +5,15 @@
       "WebFetch(domain:aboro-it.net)",
       "Bash(python manage.py makemigrations:*)",
       "Bash(python manage.py migrate:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(mkdir:*)",
+      "Bash(timeout 10 python manage.py runsslserver:*)",
+      "Bash(pip show:*)",
+      "Bash(timeout:*)",
+      "Bash(copy:*)",
+      "Bash(cp:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

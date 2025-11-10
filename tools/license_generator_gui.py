@@ -114,42 +114,47 @@ class PricingFetcher:
             # Parse pricing with regex patterns
             pricing_data = {}
             
-            # Starter Plan - €149/month
-            starter_match = re.search(r'€(\d+).*?month.*?Starter.*?1-5 agents', html, re.IGNORECASE | re.DOTALL)
+            # Cloud Starter - €299/month
+            starter_match = re.search(r'€(\d+).*?month.*?Starter.*?10.*?agents', html, re.IGNORECASE | re.DOTALL)
             if starter_match:
                 pricing_data['STARTER'] = {
-                    'name': 'Starter Plan',
-                    'agents': 5,
-                    'features': ['tickets', 'email', 'knowledge_base', 'smtp_imap'],
+                    'name': 'Cloud Starter',
+                    'agents': 10,
+                    'features': ['tickets', 'email', 'web_form', 'knowledge_base', 'mobile_ready'],
                     'monthly_price': int(starter_match.group(1)),
+                    'restricted': ['ai_automation', 'api_access']
                 }
             
-            # Professional Plan - €349/month  
-            professional_match = re.search(r'€(\d+).*?month.*?Professional.*?5-20 agents', html, re.IGNORECASE | re.DOTALL)
+            # Cloud Professional - €599/month  
+            professional_match = re.search(r'€(\d+).*?month.*?Professional.*?50.*?agents', html, re.IGNORECASE | re.DOTALL)
             if professional_match:
                 pricing_data['PROFESSIONAL'] = {
-                    'name': 'Professional Plan',
-                    'agents': 20,
-                    'features': ['tickets', 'email', 'knowledge_base', 'live_chat', 'ai_automation', 'custom_branding', 'api_basic'],
+                    'name': 'Cloud Professional',
+                    'agents': 50,
+                    'features': ['tickets', 'email', 'web_form', 'knowledge_base', 'mobile_ready', 'live_chat', 'ai_automation', 'advanced_reporting', 'custom_branding', 'api_access'],
                     'monthly_price': int(professional_match.group(1)),
+                    'restricted': []
                 }
             
-            # Enterprise Plan - €799/month
-            enterprise_match = re.search(r'€(\d+).*?month.*?Enterprise.*?20\+ agents', html, re.IGNORECASE | re.DOTALL)
+            # Cloud Enterprise - €1199/month
+            enterprise_match = re.search(r'€(\d+).*?month.*?Enterprise.*?Unlimited.*?agents', html, re.IGNORECASE | re.DOTALL)
             if enterprise_match:
                 pricing_data['ENTERPRISE'] = {
-                    'name': 'Enterprise Plan',
+                    'name': 'Cloud Enterprise',
                     'agents': 999,
-                    'features': ['tickets', 'email', 'knowledge_base', 'live_chat', 'ai_automation', 'custom_branding', 'api_full', 'sso_ldap', 'sla'],
+                    'features': ['tickets', 'email', 'web_form', 'knowledge_base', 'mobile_ready', 'live_chat', 'ai_automation', 'advanced_reporting', 'custom_branding', 'api_full', 'webhooks', 'sso_ldap', 'sla', 'dedicated_support'],
                     'monthly_price': int(enterprise_match.group(1)),
+                    'restricted': []
                 }
             
-            # Add On-Premise plan (not on website, custom pricing)
+            # On-Premise - €6500/year (€542/month equivalent)
             pricing_data['ON_PREMISE'] = {
                 'name': 'On-Premise License',
                 'agents': 999,
-                'features': ['tickets', 'email', 'knowledge_base', 'ai_automation', 'custom_branding', 'api_full', 'sso_ldap', 'sla', 'on_premise'],
-                'monthly_price': 2500,  # Custom pricing for on-premise
+                'features': ['tickets', 'email', 'web_form', 'knowledge_base', 'mobile_ready', 'live_chat', 'ai_automation', 'advanced_reporting', 'custom_branding', 'api_full', 'webhooks', 'sso_ldap', 'sla', 'unlimited_installations', 'source_code'],
+                'monthly_price': 542,
+                'yearly_price': 6500,
+                'restricted': []
             }
             
             if len(pricing_data) >= 3:  # At least 3 plans found
@@ -166,31 +171,36 @@ class PricingFetcher:
     @classmethod
     def _get_fallback_pricing(cls):
         """Fallback pricing if website is not accessible"""
-        print("[INFO] Using fallback pricing (last known prices)")
+        print("[INFO] Using fallback pricing (current aboro-it.net pricing)")
         return {
             'STARTER': {
-                'name': 'Starter Plan',
-                'agents': 5,
-                'features': ['tickets', 'email', 'knowledge_base', 'smtp_imap'],
-                'monthly_price': 149,  # €149/month from website
+                'name': 'Cloud Starter',
+                'agents': 10,
+                'features': ['tickets', 'email', 'web_form', 'knowledge_base', 'mobile_ready'],
+                'monthly_price': 299,
+                'restricted': ['ai_automation', 'api_access']
             },
             'PROFESSIONAL': {
-                'name': 'Professional Plan',
-                'agents': 20,
-                'features': ['tickets', 'email', 'knowledge_base', 'live_chat', 'ai_automation', 'custom_branding', 'api_basic'],
-                'monthly_price': 349,  # €349/month from website
+                'name': 'Cloud Professional', 
+                'agents': 50,
+                'features': ['tickets', 'email', 'web_form', 'knowledge_base', 'mobile_ready', 'live_chat', 'ai_automation', 'advanced_reporting', 'custom_branding', 'api_access'],
+                'monthly_price': 599,
+                'restricted': []
             },
             'ENTERPRISE': {
-                'name': 'Enterprise Plan',
+                'name': 'Cloud Enterprise',
                 'agents': 999,
-                'features': ['tickets', 'email', 'knowledge_base', 'live_chat', 'ai_automation', 'custom_branding', 'api_full', 'sso_ldap', 'sla'],
-                'monthly_price': 799,  # €799/month from website
+                'features': ['tickets', 'email', 'web_form', 'knowledge_base', 'mobile_ready', 'live_chat', 'ai_automation', 'advanced_reporting', 'custom_branding', 'api_full', 'webhooks', 'sso_ldap', 'sla', 'dedicated_support'],
+                'monthly_price': 1199,
+                'restricted': []
             },
             'ON_PREMISE': {
                 'name': 'On-Premise License',
                 'agents': 999,
-                'features': ['tickets', 'email', 'knowledge_base', 'ai_automation', 'custom_branding', 'api_full', 'sso_ldap', 'sla', 'on_premise'],
-                'monthly_price': 2500,  # Custom pricing
+                'features': ['tickets', 'email', 'web_form', 'knowledge_base', 'mobile_ready', 'live_chat', 'ai_automation', 'advanced_reporting', 'custom_branding', 'api_full', 'webhooks', 'sso_ldap', 'sla', 'unlimited_installations', 'source_code'],
+                'monthly_price': 542,
+                'yearly_price': 6500,
+                'restricted': []
             },
         }
 

@@ -31,7 +31,7 @@ class SystemSettingsAdmin(admin.ModelAdmin):
             'fields': ('timezone', 'language')
         }),
         ('License Configuration', {
-            'fields': ('license_code', 'license_product', 'license_expiry_date', 'license_max_agents', 'license_features', 'license_valid', 'license_last_validated')
+            'fields': ('license_code', 'license_last_validated')
         }),
         ('Statistics Permissions', {
             'fields': ('stats_permissions',)

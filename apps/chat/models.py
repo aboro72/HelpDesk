@@ -125,6 +125,12 @@ class ChatSettings(models.Model):
     business_start = models.TimeField(default='09:00')
     business_end = models.TimeField(default='17:00')
     
+    # Security & External Embedding
+    allowed_domains = models.TextField(
+        default="https://aboro-it.net,https://www.aboro-it.net",
+        help_text="Comma-separated list of domains allowed to embed the chat widget"
+    )
+    
     class Meta:
         verbose_name = "Chat Settings"
         verbose_name_plural = "Chat Settings"

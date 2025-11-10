@@ -23,28 +23,33 @@ class LicenseManager:
     # Product codes and their features
     PRODUCTS = {
         'STARTER': {
-            'name': 'Starter Plan',
-            'agents': 5,
-            'features': ['tickets', 'email', 'knowledge_base'],
-            'monthly_price': 199,
+            'name': 'Cloud Starter',
+            'agents': 10,
+            'features': ['tickets', 'email', 'web_form', 'knowledge_base', 'mobile_ready'],
+            'restricted': ['ai_automation', 'api_access', 'live_chat', 'advanced_reporting', 'custom_branding'],
+            'monthly_price': 299,
         },
         'PROFESSIONAL': {
-            'name': 'Professional Plan',
-            'agents': 20,
-            'features': ['tickets', 'email', 'knowledge_base', 'ai_automation', 'custom_branding', 'api_basic'],
-            'monthly_price': 499,
+            'name': 'Cloud Professional',
+            'agents': 50,
+            'features': ['tickets', 'email', 'web_form', 'knowledge_base', 'mobile_ready', 'live_chat', 'ai_automation', 'advanced_reporting', 'custom_branding', 'api_access'],
+            'restricted': ['api_full', 'webhooks', 'sso_ldap', 'sla', 'dedicated_support'],
+            'monthly_price': 599,
         },
         'ENTERPRISE': {
-            'name': 'Enterprise Plan',
+            'name': 'Cloud Enterprise',
             'agents': 999,
-            'features': ['tickets', 'email', 'knowledge_base', 'ai_automation', 'custom_branding', 'api_full', 'sso_ldap', 'sla'],
-            'monthly_price': 1299,
+            'features': ['tickets', 'email', 'web_form', 'knowledge_base', 'mobile_ready', 'live_chat', 'ai_automation', 'advanced_reporting', 'custom_branding', 'api_full', 'webhooks', 'sso_ldap', 'sla', 'dedicated_support'],
+            'restricted': [],
+            'monthly_price': 1199,
         },
         'ON_PREMISE': {
             'name': 'On-Premise License',
             'agents': 999,
-            'features': ['tickets', 'email', 'knowledge_base', 'ai_automation', 'custom_branding', 'api_full', 'sso_ldap', 'sla', 'on_premise'],
-            'monthly_price': 10000,
+            'features': ['tickets', 'email', 'web_form', 'knowledge_base', 'mobile_ready', 'live_chat', 'ai_automation', 'advanced_reporting', 'custom_branding', 'api_full', 'webhooks', 'sso_ldap', 'sla', 'unlimited_installations', 'source_code'],
+            'restricted': [],
+            'monthly_price': 542,
+            'yearly_price': 6500,
         },
     }
 
@@ -276,12 +281,12 @@ class LicenseManager:
         product_info = cls.PRODUCTS[product]
         monthly_price = product_info['monthly_price']
 
-        # Setup fees
+        # Setup fees - no setup fees for current pricing model
         setup_fees = {
-            'STARTER': 499,
-            'PROFESSIONAL': 999,
-            'ENTERPRISE': 2499,
-            'ON_PREMISE': 0,  # Included in initial price
+            'STARTER': 0,
+            'PROFESSIONAL': 0,
+            'ENTERPRISE': 0,
+            'ON_PREMISE': 0,
         }
 
         setup_fee = setup_fees.get(product, 0)

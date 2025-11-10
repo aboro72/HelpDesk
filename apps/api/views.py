@@ -28,6 +28,7 @@ from .serializers import (
     CategorySerializer, KnowledgeArticleSerializer
 )
 from .license_manager import LicenseManager
+from .license_checker import LicenseFeatureChecker
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,36 @@ class LicenseValidationMixin:
         if not is_valid:
             return False, Response(
                 {'error': error, 'code': 'INVALID_LICENSE'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Set license for feature checking
+        LicenseFeatureChecker.set_license(license_key)
+        return True, None
+
+    def check_api_feature(self, request, feature_type='api_access'):
+        """Check if API feature is available in license"""
+        # First validate license
+        license_valid, error_response = self.validate_license(request)
+        if not license_valid:
+            return False, error_response
+
+        # Check if API access is allowed
+        if not LicenseFeatureChecker.has_feature(feature_type):
+            license_info = LicenseFeatureChecker.get_current_license()
+            current_product = license_info.get('product', 'UNLICENSED') if license_info else 'UNLICENSED'
+            
+            required_license = 'Professional or higher' if feature_type == 'api_access' else 'Enterprise'
+            
+            return False, Response({
+                'error': f'API access not available in {current_product} license',
+                'required_license': required_license,
+                'current_license': current_product,
+                'upgrade_url': 'https://aboro-it.net/pricing/',
+                'code': 'FEATURE_RESTRICTED'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        return True, None
                 status=status.HTTP_401_UNAUTHORIZED
             )
 

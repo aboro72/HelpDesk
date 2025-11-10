@@ -18,6 +18,10 @@ class ChatSettingsAdmin(admin.ModelAdmin):
         ('Business Hours', {
             'fields': ('business_hours_only', 'business_start', 'business_end')
         }),
+        ('Security & External Embedding', {
+            'fields': ('allowed_domains',),
+            'description': 'Configure which domains are allowed to embed the chat widget for external websites'
+        }),
     )
     
     def has_add_permission(self, request):

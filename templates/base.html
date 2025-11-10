@@ -496,11 +496,14 @@
                 {% endif %}
                 {% if user.role == 'admin' %}
                 <a href="{% url 'tickets:create' %}">Ticket erstellen</a>
+                <a href="{% url 'chat:agent_dashboard' %}">💬 Chat Dashboard</a>
                 <a href="{% url 'accounts:user_list' %}">Benutzerverwaltung</a>
                 <a href="/admin/">Admin</a>
                 {% elif user.role == 'support_agent' and user.support_level == 4 %}
+                <a href="{% url 'chat:agent_dashboard' %}">💬 Chat Dashboard</a>
                 <a href="{% url 'accounts:user_list' %}">Benutzer/Kundenverwaltung</a>
                 {% elif user.role == 'support_agent' %}
+                <a href="{% url 'chat:agent_dashboard' %}">💬 Chat Dashboard</a>
                 <a href="{% url 'accounts:user_list' %}">Kundenverwaltung</a>
                 {% endif %}
                 {% else %}

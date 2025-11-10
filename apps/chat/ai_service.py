@@ -2,7 +2,9 @@ import json
 import logging
 import requests
 from django.conf import settings
+from django.db.models import Q
 from apps.admin_panel.models import SystemSettings
+from apps.knowledge.models import KnowledgeArticle
 
 logger = logging.getLogger(__name__)
 
