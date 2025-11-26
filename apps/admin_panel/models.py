@@ -99,10 +99,11 @@ class SystemSettings(models.Model):
         _('AI Provider'),
         max_length=20,
         choices=[
+            ('llama3', 'LLAMA3 (Lokal - kostenlos)'),
             ('chatgpt', 'ChatGPT (OpenAI)'),
             ('claude', 'Claude (Anthropic)'),
         ],
-        default='claude',
+        default='llama3',
         help_text='Welche KI für automatische Antworten verwenden'
     )
     openai_api_key = models.CharField(

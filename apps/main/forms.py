@@ -144,7 +144,11 @@ class AdminSettingsForm(forms.Form):
     )
     ai_provider = forms.ChoiceField(
         label='KI Provider',
-        choices=[('chatgpt', 'ChatGPT (OpenAI)'), ('claude', 'Claude (Anthropic)')],
+        choices=[
+            ('llama3', 'LLAMA3 (Lokal - kostenlos)'),
+            ('chatgpt', 'ChatGPT (OpenAI)'),
+            ('claude', 'Claude (Anthropic)')
+        ],
         widget=forms.Select(attrs={'class': 'form-control'})
     )
     openai_api_key = forms.CharField(
