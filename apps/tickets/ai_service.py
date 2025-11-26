@@ -1,23 +1,96 @@
 """
-Claude AI Service for automatic ticket responses
+AI Service für automatische Ticket-Responses mit LLAMA3-Integration
 """
 import anthropic
+import logging
 from django.conf import settings
 from .models import Ticket, TicketComment
 from apps.knowledge.models import KnowledgeArticle
 
+logger = logging.getLogger(__name__)
+
+# Import Unified AI Service für LLAMA3
+try:
+    from apps.ai.unified_ai_service import unified_ai_service
+    UNIFIED_AI_AVAILABLE = unified_ai_service.is_available()
+except ImportError:
+    UNIFIED_AI_AVAILABLE = False
+    logger.warning("Unified AI Service nicht verfügbar - Fallback auf Claude-only")
+
 
 class ClaudeAIService:
-    """Service to interact with Claude AI for auto-responses"""
+    """Service to interact with AI for auto-responses (Claude + LLAMA3)"""
 
     def __init__(self):
         self.client = None
-        if settings.CLAUDE_API_KEY:
+        self.use_llama3 = getattr(settings, 'USE_LLAMA3', True) and UNIFIED_AI_AVAILABLE
+
+        if hasattr(settings, 'CLAUDE_API_KEY') and settings.CLAUDE_API_KEY:
             self.client = anthropic.Anthropic(api_key=settings.CLAUDE_API_KEY)
 
+        logger.info(f"Ticket AI Service - LLAMA3: {self.use_llama3}, Claude: {bool(self.client)}")
+
     def is_available(self):
-        """Check if Claude AI is configured and available"""
-        return self.client is not None
+        """Check if AI is configured and available (Claude or LLAMA3)"""
+        return self.client is not None or self.use_llama3
+
+    def categorize_ticket_auto(self, ticket):
+        """
+        Automatische Ticket-Kategorisierung mit LLAMA3 (wenn verfügbar)
+
+        Args:
+            ticket: Ticket-Instanz
+
+        Returns:
+            Tuple (category, confidence, provider) oder (None, None, None)
+        """
+        if not self.use_llama3:
+            return None, None, None
+
+        try:
+            logger.info(f"Auto-kategorisiere Ticket {ticket.ticket_number} mit LLAMA3")
+            category, confidence, provider = unified_ai_service.categorize_ticket(
+                ticket.title,
+                ticket.description
+            )
+
+            if category and confidence and confidence > 0.7:
+                logger.info(f"Ticket kategorisiert: {category} (Konfidenz: {confidence}, Provider: {provider})")
+                return category, confidence, provider
+
+        except Exception as e:
+            logger.error(f"Fehler bei Auto-Kategorisierung: {e}")
+
+        return None, None, None
+
+    def suggest_ticket_priority_auto(self, ticket):
+        """
+        Automatische Prioritäts-Vorschlag mit LLAMA3
+
+        Args:
+            ticket: Ticket-Instanz
+
+        Returns:
+            Tuple (priority, reason, provider) oder (None, None, None)
+        """
+        if not self.use_llama3:
+            return None, None, None
+
+        try:
+            logger.info(f"Priorität-Vorschlag für Ticket {ticket.ticket_number} mit LLAMA3")
+            priority, reason, provider = unified_ai_service.suggest_priority(
+                ticket.title,
+                ticket.description
+            )
+
+            if priority:
+                logger.info(f"Priorität vorgeschlagen: {priority} ({reason}) [Provider: {provider}]")
+                return priority, reason, provider
+
+        except Exception as e:
+            logger.error(f"Fehler bei Prioritäts-Vorschlag: {e}")
+
+        return None, None, None
 
     def get_relevant_knowledge(self, query, limit=3):
         """Search knowledge base for relevant articles"""

@@ -8,12 +8,21 @@ from apps.knowledge.models import KnowledgeArticle
 
 logger = logging.getLogger(__name__)
 
+# Import Unified AI Service für LLAMA3-Integration
+try:
+    from apps.ai.unified_ai_service import unified_ai_service
+    UNIFIED_AI_AVAILABLE = unified_ai_service.is_available()
+except ImportError:
+    UNIFIED_AI_AVAILABLE = False
+    logger.warning("Unified AI Service nicht verfügbar - Fallback auf Legacy-Services")
+
 
 class AIService:
-    """AI service handler for chat responses"""
-    
+    """AI service handler for chat responses mit LLAMA3-Integration"""
+
     def __init__(self):
         self.system_settings = SystemSettings.get_settings()
+        self.use_llama3 = getattr(settings, 'USE_LLAMA3', True) and UNIFIED_AI_AVAILABLE
     
     def is_ai_enabled(self):
         """Check if AI is enabled in settings"""
@@ -22,18 +31,47 @@ class AIService:
     def get_ai_response(self, message, chat_history=None):
         """
         Get AI response for a chat message with fallback mechanisms
-        
+
+        NEUE PRIORITÄT mit LLAMA3:
+        1. LLAMA3 (lokal, kostenlos, schnell) - wenn aktiviert
+        2. ChatGPT/Claude (API, konfiguriert)
+        3. Rule-based fallback (immer verfügbar)
+
         Args:
             message (str): User's message
             chat_history (list): Previous chat messages for context
-            
+
         Returns:
             str or None: AI response or None if error/disabled
         """
         if not self.is_ai_enabled():
             return None
-        
-        # Primary AI provider attempt
+
+        # PRIORITY 1: LLAMA3 lokale KI (wenn aktiviert und verfügbar)
+        if self.use_llama3 and UNIFIED_AI_AVAILABLE:
+            try:
+                logger.info("Trying LLAMA3 local AI for chat response...")
+
+                # Konvertiere Chat-History zum richtigen Format
+                context = []
+                if chat_history:
+                    for msg in chat_history[-5:]:
+                        context.append({
+                            'role': 'assistant' if not msg.is_from_visitor else 'user',
+                            'content': msg.message,
+                            'is_from_visitor': msg.is_from_visitor
+                        })
+
+                response, provider = unified_ai_service.generate_chat_response(message, context)
+                if response:
+                    logger.info(f"LLAMA3 response generated (provider: {provider})")
+                    return response
+                else:
+                    logger.warning("LLAMA3 failed, falling back to cloud APIs")
+            except Exception as e:
+                logger.error(f"LLAMA3 error: {e}, falling back to cloud APIs")
+
+        # PRIORITY 2: Cloud APIs (ChatGPT/Claude)
         try:
             if self.system_settings.ai_provider == 'chatgpt':
                 response = self._get_chatgpt_response(message, chat_history)
@@ -55,8 +93,8 @@ class AIService:
                     return response
         except Exception as e:
             logger.error(f"Primary AI service error: {e}")
-        
-        # Final fallback to free version
+
+        # PRIORITY 3: Rule-based fallback (immer verfügbar)
         try:
             logger.info("Using fallback free AI response")
             return self._get_claude_free_response(message, chat_history)
