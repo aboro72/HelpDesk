@@ -12,4 +12,5 @@ urlpatterns = [
     path('<int:pk>/assign/', views.ticket_assign, name='assign'),
     path('<int:pk>/escalate/', views.ticket_escalate, name='escalate'),
     path('<int:pk>/close/', views.ticket_close, name='close'),
+    path('<int:pk>/api/ai-suggest/', views.ai_suggest_response_api, name='ai_suggest_response'),
 ]

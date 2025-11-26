@@ -183,7 +183,34 @@
     {% if ticket.status != 'closed' %}
     <div style="border-top: 2px solid #f0f0f0; padding-top: 20px;">
         <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 15px;">Neue Nachricht hinzufügen</h4>
-        <form method="post">
+
+        {% if user.role != 'customer' %}
+        <!-- AI Suggestion Button for Agents -->
+        <div style="margin-bottom: 15px;">
+            <button type="button" id="aiSuggestBtn" class="btn btn-info btn-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; padding: 8px 16px;">
+                🤖 AI-Antwortvorschlag generieren
+            </button>
+            <span id="aiLoadingMsg" style="display: none; margin-left: 10px; color: #667eea; font-size: 13px;">
+                <i class="fa fa-spinner fa-spin"></i> KI generiert Vorschlag...
+            </span>
+            <div id="aiSuggestionBox" style="display: none; margin-top: 15px; padding: 15px; background: #f0f4ff; border-left: 4px solid #667eea; border-radius: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <strong style="color: #667eea;">🤖 AI-Vorschlag (<span id="aiProvider"></span>)</strong>
+                    <div>
+                        <button type="button" id="aiUseBtn" class="btn btn-success btn-sm" style="padding: 4px 12px; font-size: 12px;">Verwenden</button>
+                        <button type="button" id="aiDismissBtn" class="btn btn-secondary btn-sm" style="padding: 4px 12px; font-size: 12px;">Verwerfen</button>
+                    </div>
+                </div>
+                <div id="aiSuggestionText" style="color: #495057; line-height: 1.6; white-space: pre-wrap; font-family: inherit;"></div>
+                <div id="aiKbArticles" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd; display: none;">
+                    <small style="color: #868e96;"><strong>Verwendete Wissensdatenbank-Artikel:</strong></small>
+                    <ul id="aiKbList" style="margin: 5px 0 0 20px; font-size: 12px; color: #868e96;"></ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <form method="post" id="commentForm">
             {% csrf_token %}
 
             <div class="form-group">
@@ -213,4 +240,93 @@
 <div style="margin-top: 20px;">
     <a href="{% url 'tickets:list' %}" class="btn btn-secondary">← Zurück zur Übersicht</a>
 </div>
+
+{% if user.role != 'customer' %}
+<!-- AI Suggestion JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const aiSuggestBtn = document.getElementById('aiSuggestBtn');
+    const aiLoadingMsg = document.getElementById('aiLoadingMsg');
+    const aiSuggestionBox = document.getElementById('aiSuggestionBox');
+    const aiSuggestionText = document.getElementById('aiSuggestionText');
+    const aiProvider = document.getElementById('aiProvider');
+    const aiUseBtn = document.getElementById('aiUseBtn');
+    const aiDismissBtn = document.getElementById('aiDismissBtn');
+    const aiKbArticles = document.getElementById('aiKbArticles');
+    const aiKbList = document.getElementById('aiKbList');
+    const contentField = document.querySelector('textarea[name="content"]');
+
+    if (!aiSuggestBtn) return;
+
+    // Get ticket ID from URL
+    const ticketId = {{ ticket.pk }};
+
+    aiSuggestBtn.addEventListener('click', function() {
+        // Show loading state
+        aiSuggestBtn.disabled = true;
+        aiLoadingMsg.style.display = 'inline';
+        aiSuggestionBox.style.display = 'none';
+
+        // Make AJAX request
+        fetch(`/tickets/${ticketId}/api/ai-suggest/`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            aiLoadingMsg.style.display = 'none';
+            aiSuggestBtn.disabled = false;
+
+            if (data.success) {
+                // Show suggestion
+                aiSuggestionText.textContent = data.text;
+                aiProvider.textContent = data.provider.toUpperCase();
+                aiSuggestionBox.style.display = 'block';
+
+                // Show KB articles if available
+                if (data.kb_articles && data.kb_articles.length > 0) {
+                    aiKbList.innerHTML = '';
+                    data.kb_articles.forEach(article => {
+                        const li = document.createElement('li');
+                        li.textContent = article.title;
+                        aiKbList.appendChild(li);
+                    });
+                    aiKbArticles.style.display = 'block';
+                } else {
+                    aiKbArticles.style.display = 'none';
+                }
+            } else {
+                alert('Fehler beim Generieren des Vorschlags: ' + (data.error || 'Unbekannter Fehler'));
+            }
+        })
+        .catch(error => {
+            aiLoadingMsg.style.display = 'none';
+            aiSuggestBtn.disabled = false;
+            console.error('Error:', error);
+            alert('Netzwerkfehler beim Generieren des Vorschlags. Bitte versuchen Sie es erneut.');
+        });
+    });
+
+    // Use AI suggestion
+    aiUseBtn.addEventListener('click', function() {
+        contentField.value = aiSuggestionText.textContent;
+        aiSuggestionBox.style.display = 'none';
+        contentField.focus();
+
+        // Scroll to content field
+        contentField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    // Dismiss AI suggestion
+    aiDismissBtn.addEventListener('click', function() {
+        aiSuggestionBox.style.display = 'none';
+    });
+});
+</script>
+{% endif %}
+
 {% endblock %}

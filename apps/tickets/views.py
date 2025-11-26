@@ -783,3 +783,45 @@ def search_customers_api(request):
         })
 
     return JsonResponse({'results': results})
+
+
+@login_required
+def ai_suggest_response_api(request, pk):
+    """
+    API endpoint to generate AI response suggestion for a ticket.
+    Returns JSON with suggested response text.
+    Only available for support agents and admins.
+    """
+    from django.http import JsonResponse
+
+    # Check permissions
+    if request.user.role not in ['support_agent', 'admin']:
+        return JsonResponse({'success': False, 'error': 'Keine Berechtigung'}, status=403)
+
+    ticket = get_object_or_404(Ticket, pk=pk)
+
+    # Check if user can access this ticket
+    if not request.user.can_access_ticket(ticket):
+        return JsonResponse({'success': False, 'error': 'Keine Berechtigung für dieses Ticket'}, status=403)
+
+    # Generate AI suggestion
+    result = ai_service.suggest_ticket_response(ticket)
+
+    if result['success']:
+        return JsonResponse({
+            'success': True,
+            'text': result['text'],
+            'provider': result['provider'],
+            'confidence': result['confidence'],
+            'kb_articles': [
+                {
+                    'id': article.id,
+                    'title': article.title,
+                    'excerpt': article.content[:200] + '...' if len(article.content) > 200 else article.content
+                }
+                for article in result['kb_articles']
+            ]
+        })
+    else:
+        error_msg = result.get('error', 'Fehler beim Generieren des Vorschlags')
+        return JsonResponse({'success': False, 'error': error_msg}, status=500)
