@@ -174,17 +174,23 @@ BISHERIGE KOMMUNIKATION:
 AUFGABE:
 Schreibe eine hilfreiche, professionelle Antwort für den Support-Agent, die dieser an den Kunden senden kann.
 
-RICHTLINIEN:
-- Schreibe auf Deutsch
-- Beginne mit "Hallo {ticket.created_by.first_name},"
-- Sei freundlich und professionell
-- Gib konkrete Lösungsschritte, wenn möglich
-- Nutze die Wissensdatenbank-Artikel als Referenz
-- Halte dich präzise (max. 250 Wörter)
-- Ende mit einer freundlichen Grußformel
-- Erwähne, dass der Agent bei weiteren Fragen zur Verfügung steht
+WICHTIG - ANREDE:
+- Verwende IMMER die förmliche SIE-Form (Sie, Ihr, Ihnen)
+- NIEMALS Du/Dich/Dir verwenden
+- NIEMALS "können Sie" und "kannst du" mischen
+- Konsequent förmlich bleiben
 
-Schreibe NUR die Antwort, keine Metakommentare."""
+RICHTLINIEN:
+- Schreibe auf Deutsch mit förmlicher Sie-Anrede
+- Beginne mit "Sehr geehrte/r Frau/Herr {ticket.created_by.last_name}," oder "Guten Tag {ticket.created_by.first_name} {ticket.created_by.last_name},"
+- Sei freundlich und professionell
+- Gebe Sie konkrete Lösungsschritte, wenn möglich
+- Nutzen Sie die Wissensdatenbank-Artikel als Referenz
+- Halten Sie sich präzise (max. 250 Wörter)
+- Enden Sie mit einer freundlichen Grußformel
+- Erwähnen Sie, dass wir bei weiteren Fragen zur Verfügung stehen
+
+Schreiben Sie NUR die Antwort, keine Metakommentare."""
 
             # Verwende Unified AI Service wenn verfügbar
             if self.use_llama3 and UNIFIED_AI_AVAILABLE:

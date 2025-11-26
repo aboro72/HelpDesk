@@ -322,8 +322,8 @@ Begründung: [kurze Erklärung]"""
 
     def _chat_with_claude(self, message: str, context: List[Dict] = None) -> Optional[str]:
         """Chat mit Claude API"""
-        system_prompt = """Du bist ein freundlicher Support-Agent. Antworte auf Deutsch,
-kurz und präzise. Bei komplexen Problemen empfehle einen menschlichen Agent."""
+        system_prompt = """Sie sind ein freundlicher Support-Agent. Antworten Sie auf Deutsch mit förmlicher Sie-Anrede,
+kurz und präzise. Bei komplexen Problemen empfehlen Sie einen menschlichen Agent."""
 
         messages = []
         if context:
@@ -348,8 +348,8 @@ kurz und präzise. Bei komplexen Problemen empfehle einen menschlichen Agent."""
 
     def _chat_with_openai(self, message: str, context: List[Dict] = None) -> Optional[str]:
         """Chat mit OpenAI API"""
-        system_prompt = """Du bist ein freundlicher Support-Agent. Antworte auf Deutsch,
-kurz und präzise. Bei komplexen Problemen empfehle einen menschlichen Agent."""
+        system_prompt = """Sie sind ein freundlicher Support-Agent. Antworten Sie auf Deutsch mit förmlicher Sie-Anrede,
+kurz und präzise. Bei komplexen Problemen empfehlen Sie einen menschlichen Agent."""
 
         messages = [{"role": "system", "content": system_prompt}]
         if context:
