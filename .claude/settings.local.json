@@ -31,7 +31,20 @@
       "Bash(git log:*)",
       "Bash(git push:*)",
       "Bash(systemctl is-active ollama)",
-      "Bash(curl -s http://127.0.0.1:11434/api/tags)"
+      "Bash(curl -s http://127.0.0.1:11434/api/tags)",
+      "Bash(.venv/bin/gunicorn:*)",
+      "Bash(sudo cp:*)",
+      "Bash(sudo systemctl daemon-reload:*)",
+      "Bash(systemctl status:*)",
+      "Bash(netstat:*)",
+      "Bash(journalctl:*)",
+      "Bash(kill:*)",
+      "Bash(curl:*)",
+      "Bash(ip addr:*)",
+      "Bash(sudo systemctl restart:*)",
+      "Bash(ss:*)",
+      "Bash(systemctl is-active:*)",
+      "Bash(sudo iptables:*)"
     ],
     "deny": [],
     "ask": []

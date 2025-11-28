@@ -1,0 +1,30 @@
+[Unit]
+Description=ML Gruppe Helpdesk Django Application
+After=network.target
+
+[Service]
+Type=notify
+User=user
+Group=user
+WorkingDirectory=/home/user/PycharmProjects/HelpDesk
+Environment="PATH=/home/user/PycharmProjects/HelpDesk/.venv/bin"
+EnvironmentFile=/home/user/PycharmProjects/HelpDesk/.env
+ExecStart=/home/user/PycharmProjects/HelpDesk/.venv/bin/gunicorn \
+    --config /home/user/PycharmProjects/HelpDesk/gunicorn_config.py \
+    --bind 0.0.0.0:8000 \
+    helpdesk.wsgi:application
+
+# Restart-Politik
+Restart=on-failure
+RestartSec=5s
+
+# Limits
+LimitNOFILE=4096
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=helpdesk
+
+[Install]
+WantedBy=multi-user.target
